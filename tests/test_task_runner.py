@@ -618,6 +618,72 @@ def test_run_task_passes_declared_size_to_measurements(monkeypatch, tmp_path):
     assert captured["design_size"] == (1440, 900)
 
 
+def test_run_task_applies_rule_review_before_writing_final_audit(monkeypatch, tmp_path):
+    settings = Settings(
+        openai_api_key="key",
+        app_secret_key="secret",
+        register_invite_code="invite",
+        initial_admin_username="admin",
+        initial_admin_password="password123",
+        data_dir=tmp_path,
+    )
+    conn = connect(settings.db_path)
+    init_db(conn)
+    user = create_user(conn, "alice", hash_password("secret123"), "user")
+    task = create_task(conn, user.id, "Audit", 1)
+    dirs = ensure_task_dirs(settings, task.id)
+    image_path = dirs.originals / "image-001.png"
+    Image.new("RGB", (40, 40), color=(255, 255, 255)).save(image_path)
+    add_task_image(conn, task.id, "image-001.png", relative_to_data(settings, image_path), 0)
+
+    def fake_auditor(path):
+        return {
+            **_empty_audit(),
+            "sample_points": [{"label": "邀好友赚套餐按钮", "x": 20, "y": 20}],
+        }
+
+    def fake_color_analysis(image_path, output_path, sample_points):
+        output_path.write_text(
+            json.dumps(
+                {
+                    "samples": [
+                        {
+                            "label": "邀好友赚套餐按钮",
+                            "x": 20,
+                            "y": 20,
+                            "hex": "#F37021",
+                            "family": "red/orange",
+                            "nearest_jm_token": {
+                                "name": "ai/ai-normal",
+                                "hex": "#6B36FA",
+                                "distance": 190.0,
+                                "is_close": False,
+                            },
+                            "off_token_candidate": True,
+                        }
+                    ]
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+
+    def fake_measurements(image_path, regions_path, output_path, crop_dir, design_size=None):
+        output_path.write_text(json.dumps({"regions": [], "distances": []}), encoding="utf-8")
+
+    monkeypatch.setattr(task_runner, "run_color_analysis", fake_color_analysis)
+    monkeypatch.setattr(task_runner, "run_measurements", fake_measurements)
+
+    run_task(settings, task.id, auditor=fake_auditor)
+
+    artifact_dir = dirs.artifacts / "image-001"
+    final_audit = json.loads((artifact_dir / "audit.json").read_text(encoding="utf-8"))
+    issues_json = json.loads((artifact_dir / "issues.json").read_text(encoding="utf-8"))
+    assert final_audit["issues"][0]["rule_source"] == "color_sample"
+    assert final_audit["issues"][0]["location"] == "邀好友赚套餐按钮"
+    assert issues_json[0]["bbox"] == [8.0, 8.0, 24.0, 24.0]
+
+
 def test_run_task_omits_design_size_when_task_has_no_declared_size(monkeypatch, tmp_path):
     settings = Settings(
         openai_api_key="key",

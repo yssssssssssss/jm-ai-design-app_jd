@@ -30,6 +30,7 @@ from app.repositories import (
     update_task_image_status,
     update_task_status,
 )
+from app.rule_engine import apply_rule_review
 from app.size_context import compute_scale
 from app.storage import ensure_task_dirs, relative_to_data, resolve_data_path
 
@@ -138,6 +139,10 @@ def _image_size(path: Path) -> tuple[int, int]:
         return source_image.size
 
 
+def _read_json(path: Path) -> Any:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
 def run_task(
     settings: Settings,
     task_id: int,
@@ -196,7 +201,6 @@ def run_task(
                 issues_path = image_artifacts / "issues.json"
                 crop_dir = image_artifacts / "region-crops"
 
-                write_json(audit_path, audit)
                 run_color_analysis(image_path, tokens_path, audit.get("sample_points", []))
                 write_regions_json(
                     regions_path,
@@ -210,6 +214,13 @@ def run_task(
                     crop_dir,
                     design_size=declared_screen_size,
                 )
+                audit = apply_rule_review(
+                    audit,
+                    tokens=_read_json(tokens_path),
+                    measurements=_read_json(measurements_path),
+                    image_size=image_size,
+                )
+                write_json(audit_path, audit)
                 issues_for_screenshots = build_issues_json_for_image(
                     audit.get("issues", []),
                     image_size=image_size,
