@@ -1,6 +1,6 @@
 import pytest
 
-from app.audit_merge import merge_audit_attempts, merge_audits
+from app.audit_merge import merge_audit_attempts, merge_audits, merge_primary_with_candidates
 
 
 def _audit(model: str, issues: list[dict]) -> dict:
@@ -443,10 +443,96 @@ def test_merge_audits_uses_neutral_agreement_for_unknown_single_model():
 
 
 def test_merge_audit_attempts_treats_empty_audit_dict_as_success():
-    result = merge_audit_attempts([{"model": "GPT-5.5", "audit": {}}])
+    with pytest.raises(RuntimeError, match="有效审核内容"):
+        merge_audit_attempts([{"model": "GPT-5.5", "audit": {}}])
 
-    assert result["model_comparison"]["model_failures"] == []
+
+def test_merge_primary_with_candidates_keeps_primary_text_and_sends_unmatched_to_review():
+    primary = _audit(
+        "GPT-5.5",
+        [
+            {
+                "id": "gpt-1",
+                "category": "颜色和渐变",
+                "severity": "中",
+                "location": "顶部右上角“邀好友赚套餐”营销按钮",
+                "current_observation": "该按钮使用橙色到红色的醒目渐变，并处在顶部右侧商业操作区。",
+                "spec_expectation": "营销入口应使用 JM AI 紫色 token。",
+                "recommendation": "改为 JM AI 紫色主导样式。",
+                "confidence": 0.86,
+                "bbox": [2586.0, 20.0, 216.0, 56.0],
+            }
+        ],
+    )
+    candidate = _audit(
+        "Kimi-K2.6",
+        [
+            {
+                "id": "kimi-1",
+                "category": "Color",
+                "severity": "高",
+                "location": "顶部右上角操作区",
+                "current_observation": '"邀好友赚套餐"按钮使用橙色填充背景，白色文字。',
+                "spec_expectation": "营销入口应使用 JM AI 紫色品牌色。",
+                "recommendation": "替换为 JM AI 紫色 token。",
+                "confidence": 0.75,
+                "bbox": [2623.616, 29.512, 219.696, 50.344],
+            },
+            {
+                "id": "kimi-2",
+                "category": "Brand/logo/accent color inventory",
+                "severity": "中",
+                "location": "左上角品牌区",
+                "current_observation": "CHATEXCEL品牌徽标使用黑白配色，未体现JM AI紫色品牌色系。",
+                "spec_expectation": "品牌区域应协调 JM AI 色彩。",
+                "recommendation": "请人工判断是否属于产品品牌豁免。",
+                "confidence": 0.6,
+                "bbox": [19.104, 29.512, 280.192, 79.856],
+            },
+        ],
+    )
+
+    result = merge_primary_with_candidates(
+        {"model": "GPT-5.5", "audit": primary, "image_size": (3184, 1736)},
+        [{"model": "Kimi-K2.6", "audit": candidate, "image_size": (3184, 1736)}],
+    )
+
+    assert len(result["issues"]) == 1
+    assert result["issues"][0]["current_observation"] == primary["issues"][0]["current_observation"]
+    assert result["issues"][0]["severity"] == "高"
+    assert result["issues"][0]["source_models"] == ["GPT-5.5", "Kimi-K2.6"]
+    assert result["issues"][0]["agreement"] == "promoted_candidate"
+    assert result["model_comparison"]["promoted_issues"] == result["issues"]
+    assert result["model_comparison"]["primary_only_issues"] == []
+    assert result["model_comparison"]["review_candidates"][0]["id"] == "kimi-2"
+    assert result["model_comparison"]["review_candidates"][0]["source_model"] == "Kimi-K2.6"
+
+
+def test_merge_primary_with_candidates_keeps_candidate_out_of_official_issues_by_default():
+    primary = _audit("GPT-5.5", [])
+    candidate = _audit(
+        "Kimi-K2.6",
+        [
+            {
+                "id": "kimi-only",
+                "category": "Brand/logo/accent color inventory",
+                "severity": "中",
+                "location": "左上角品牌区",
+                "current_observation": "品牌徽标未使用 JM AI 紫色。",
+                "bbox": [20, 20, 100, 40],
+            }
+        ],
+    )
+
+    result = merge_primary_with_candidates(
+        {"model": "GPT-5.5", "audit": primary, "image_size": (3184, 1736)},
+        [{"model": "Kimi-K2.6", "audit": candidate, "image_size": (3184, 1736)}],
+    )
+
     assert result["issues"] == []
+    assert result["model_comparison"]["promoted_issues"] == []
+    assert result["model_comparison"]["primary_only_issues"] == []
+    assert len(result["model_comparison"]["review_candidates"]) == 1
 
 
 def test_merge_audits_combines_same_real_world_issue_with_different_wording():

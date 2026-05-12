@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from difflib import SequenceMatcher
 from typing import Any
 
@@ -89,7 +90,7 @@ def merge_audit_attempts(attempts: list[dict[str, Any]]) -> dict[str, Any]:
         model = str(attempt.get("model") or _default_model(index))
         audit = attempt["audit"] if "audit" in attempt else attempt.get("result")
         error = attempt.get("error")
-        if isinstance(audit, dict) and error is None:
+        if isinstance(audit, dict) and error is None and _has_valid_audit_content(audit):
             audits.append(
                 {
                     "model": str(audit.get("model") or model),
@@ -101,6 +102,8 @@ def merge_audit_attempts(attempts: list[dict[str, Any]]) -> dict[str, Any]:
             failures.append({"model": model, "error": _short_error(error or "unknown error")})
 
     if not audits:
+        if failures and all(failure["error"] == "unknown error" for failure in failures):
+            raise RuntimeError("全部模型审核失败：模型未返回有效审核内容")
         raise RuntimeError("全部模型审核失败")
 
     result = merge_audits(audits)
@@ -108,6 +111,104 @@ def merge_audit_attempts(attempts: list[dict[str, Any]]) -> dict[str, Any]:
     if failures:
         result["overall_conclusion"] = f"单模型降级审核：{result['overall_conclusion']}"
     return result
+
+
+def merge_primary_with_candidates(
+    primary_attempt: dict[str, Any],
+    candidate_attempts: list[dict[str, Any]],
+) -> dict[str, Any]:
+    primary = _valid_attempt_audit(primary_attempt, 0)
+    candidates = [
+        _valid_attempt_audit(attempt, index + 1)
+        for index, attempt in enumerate(candidate_attempts)
+        if isinstance(attempt.get("audit") if "audit" in attempt else attempt.get("result"), dict)
+    ]
+
+    official_issues = [
+        _primary_issue(issue, primary["model"])
+        for issue in _list(primary.get("issues"))
+        if isinstance(issue, dict)
+    ]
+    review_candidates: list[dict[str, Any]] = []
+
+    for candidate in candidates:
+        for raw_issue in _list(candidate.get("issues")):
+            if not isinstance(raw_issue, dict):
+                continue
+            candidate_issue = dict(raw_issue)
+            match = _find_match(official_issues, candidate_issue)
+            if match is None:
+                review_candidates.append(_review_candidate(candidate_issue, candidate["model"]))
+                continue
+            _promote_primary_issue(match, candidate_issue, candidate["model"])
+
+    result = deepcopy(primary)
+    result["issues"] = [
+        _finalize_primary_issue(issue, index)
+        for index, issue in enumerate(official_issues, start=1)
+    ]
+    comparison = _comparison(
+        [primary["model"]] + [candidate["model"] for candidate in candidates],
+        result["issues"],
+        [],
+    )
+    comparison["promoted_issues"] = [
+        issue for issue in result["issues"] if issue.get("agreement") == "promoted_candidate"
+    ]
+    comparison["primary_only_issues"] = [
+        issue for issue in result["issues"] if issue.get("agreement") == "primary_only"
+    ]
+    comparison["review_candidates"] = review_candidates
+    result["model_comparison"] = comparison
+    return result
+
+
+def _valid_attempt_audit(attempt: dict[str, Any], index: int) -> dict[str, Any]:
+    audit = attempt["audit"] if "audit" in attempt else attempt.get("result")
+    if not isinstance(audit, dict) or not _has_valid_audit_content(audit):
+        raise RuntimeError("模型未返回有效审核内容")
+    model = str(audit.get("model") or attempt.get("model") or _default_model(index))
+    image_size = _image_size(attempt.get("image_size") or audit.get("_image_size"))
+    return _prepare_audit({**audit, "model": model}, image_size)
+
+
+def _has_valid_audit_content(audit: dict[str, Any]) -> bool:
+    return all(key in audit for key in REQUIRED_TOP_LEVEL_KEYS)
+
+
+def _primary_issue(issue: dict[str, Any], model: str) -> dict[str, Any]:
+    output = deepcopy(issue)
+    output["_source_models"] = [model]
+    return output
+
+
+def _promote_primary_issue(
+    primary_issue: dict[str, Any],
+    candidate_issue: dict[str, Any],
+    candidate_model: str,
+) -> None:
+    primary_issue["_source_models"] = _sort_models(
+        _list(primary_issue.get("_source_models")) + [candidate_model]
+    )
+    primary_issue["severity"] = _higher_severity(
+        primary_issue.get("severity"),
+        candidate_issue.get("severity"),
+    )
+
+
+def _finalize_primary_issue(issue: dict[str, Any], index: int) -> dict[str, Any]:
+    output = {key: value for key, value in issue.items() if key != "_source_models"}
+    output.setdefault("id", f"问题-{index:03d}")
+    source_models = _sort_models(issue.get("_source_models", []))
+    output["source_models"] = source_models
+    output["agreement"] = "promoted_candidate" if len(source_models) > 1 else "primary_only"
+    return output
+
+
+def _review_candidate(issue: dict[str, Any], model: str) -> dict[str, Any]:
+    output = deepcopy(issue)
+    output["source_model"] = model
+    return output
 
 
 def _with_model(audit: dict[str, Any], index: int) -> dict[str, Any]:

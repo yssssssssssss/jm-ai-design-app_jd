@@ -1,15 +1,19 @@
 import json
 
+import pytest
 from PIL import Image
 
 from app.openai_audit import (
     AuditModelError,
     audit_image_with_chat,
+    audit_image_with_chat_light,
     audit_image,
     audit_json_schema,
     build_audit_prompt,
     image_data_url,
     parse_audit_json,
+    parse_lenient_chat_audit_json,
+    parse_strict_audit_json,
 )
 
 
@@ -37,14 +41,15 @@ def test_build_audit_prompt_includes_spec_rules():
     assert "bbox" in prompt
 
 
-def test_build_audit_prompt_requires_header_action_color_inventory():
+def test_build_audit_prompt_requires_balanced_audit_categories():
     prompt = build_audit_prompt("SPEC TEXT")
 
     assert "右上角" in prompt
-    assert "邀好友赚套餐" in prompt
-    assert "续费套餐" in prompt
-    assert "头像" in prompt
-    assert "独立问题" in prompt
+    assert "色彩" in prompt
+    assert "字体" in prompt
+    assert "间距" in prompt
+    assert "AI 按钮" in prompt
+    assert "不要只围绕顶部" in prompt
 
 
 def test_build_audit_prompt_includes_declared_screen_size_context():
@@ -109,6 +114,39 @@ def test_parse_audit_json_rejects_missing_required_key():
         assert "overall_conclusion" in str(exc)
     else:
         raise AssertionError("missing keys should fail")
+
+
+def test_parse_strict_audit_json_rejects_missing_arrays_even_for_chat_shape():
+    with pytest.raises(AuditModelError, match="major_issues"):
+        parse_strict_audit_json(
+            json.dumps(
+                {
+                    "screen_context": "首页",
+                    "overall_conclusion": "基本符合",
+                    "issues": [],
+                },
+                ensure_ascii=False,
+            )
+        )
+
+
+def test_parse_lenient_chat_audit_json_fills_missing_arrays_for_fallback_models():
+    result = parse_lenient_chat_audit_json(
+        json.dumps(
+            {
+                "screen_context": "首页",
+                "overall_conclusion": "基本符合",
+                "issues": [],
+            },
+            ensure_ascii=False,
+        ),
+        image_size=(1000, 500),
+    )
+
+    assert result["major_issues"] == []
+    assert result["passes"] == []
+    assert result["sample_points"] == []
+    assert result["checklist"] == []
 
 
 def test_parse_audit_json_can_fill_missing_arrays_for_chat_models():
@@ -622,14 +660,51 @@ def test_audit_image_with_chat_calls_chat_completions_with_image(tmp_path):
     kwargs = client.chat.completions.kwargs
     assert kwargs["model"] == "jd-model"
     assert kwargs["response_format"] == {"type": "json_object"}
+    assert "extra_body" not in kwargs
     content = kwargs["messages"][0]["content"]
     assert content[0]["type"] == "text"
     assert "SPEC" in content[0]["text"]
     assert "必须只输出一个 JSON 对象" in content[0]["text"]
     assert content[1]["type"] == "image_url"
     assert content[1]["image_url"]["url"].startswith("data:image/png;base64,")
-    assert kwargs["extra_body"] == {"thinking": {"type": "disabled"}}
-    assert "reasoning" not in kwargs
+
+
+def test_audit_image_with_chat_passes_reasoning_effort_when_configured(tmp_path):
+    image_path = tmp_path / "screen.png"
+    Image.new("RGB", (2, 2), color=(107, 54, 250)).save(image_path)
+    payload = _valid_payload()
+
+    class FakeCompletions:
+        def __init__(self):
+            self.kwargs = None
+
+        def create(self, **kwargs):
+            self.kwargs = kwargs
+
+            class Message:
+                content = json.dumps(payload, ensure_ascii=False)
+
+            class Choice:
+                message = Message()
+
+            class Response:
+                choices = [Choice()]
+
+            return Response()
+
+    class FakeChat:
+        def __init__(self):
+            self.completions = FakeCompletions()
+
+    class FakeClient:
+        def __init__(self):
+            self.chat = FakeChat()
+
+    client = FakeClient()
+
+    audit_image_with_chat(client, "jd-model", image_path, "SPEC", reasoning_effort="medium")
+
+    assert client.chat.completions.kwargs["reasoning"] == {"effort": "medium"}
 
 
 def test_audit_image_with_chat_requests_enough_output_tokens(tmp_path):
@@ -668,6 +743,51 @@ def test_audit_image_with_chat_requests_enough_output_tokens(tmp_path):
     audit_image_with_chat(client, "jd-model", image_path, "SPEC")
 
     assert client.chat.completions.kwargs["max_tokens"] == 32768
+
+
+def test_audit_image_with_chat_light_uses_compact_prompt_and_output_budget(tmp_path):
+    image_path = tmp_path / "screen.png"
+    Image.new("RGB", (2, 2), color=(107, 54, 250)).save(image_path)
+    payload = _valid_payload()
+    full_spec = "VERY LONG SPEC " * 1000
+
+    class FakeCompletions:
+        def __init__(self):
+            self.kwargs = None
+
+        def create(self, **kwargs):
+            self.kwargs = kwargs
+
+            class Message:
+                content = json.dumps(payload, ensure_ascii=False)
+
+            class Choice:
+                message = Message()
+
+            class Response:
+                choices = [Choice()]
+
+            return Response()
+
+    class FakeChat:
+        def __init__(self):
+            self.completions = FakeCompletions()
+
+    class FakeClient:
+        def __init__(self):
+            self.chat = FakeChat()
+
+    client = FakeClient()
+
+    result = audit_image_with_chat_light(client, "jd-model", image_path, full_spec)
+
+    assert result == payload
+    kwargs = client.chat.completions.kwargs
+    prompt = kwargs["messages"][0]["content"][0]["text"]
+    assert kwargs["max_tokens"] == 4096
+    assert "轻量审核" in prompt
+    assert "VERY LONG SPEC" not in prompt
+    assert "最多输出 8 个" in prompt
 
 
 def test_audit_image_with_chat_rejects_empty_message_content(tmp_path):

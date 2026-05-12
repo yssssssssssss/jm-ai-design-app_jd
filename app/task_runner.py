@@ -8,7 +8,7 @@ from typing import Any, Callable
 from openai import OpenAI
 from PIL import Image
 
-from app.audit_merge import merge_audit_attempts
+from app.audit_merge import merge_audit_attempts, merge_primary_with_candidates
 from app.config import Settings
 from app.db import connect
 from app.evidence_tools import (
@@ -20,7 +20,7 @@ from app.evidence_tools import (
     write_regions_json,
 )
 from app.models import TASK_FAILED, TASK_RUNNING, TASK_SUCCEEDED
-from app.openai_audit import audit_image, audit_image_with_chat
+from app.openai_audit import audit_image, audit_image_with_chat, audit_image_with_chat_light
 from app.report_renderer import render_report_html
 from app.repositories import (
     clear_task_image_artifacts,
@@ -52,11 +52,10 @@ def _default_auditor(
         timeout=settings.audit_timeout_seconds,
         max_retries=0,
     )
-    audit = (
-        audit_image_with_chat
-        if settings.audit_model_provider == "jdcloud"
-        else audit_image
-    )
+    if settings.audit_model_provider == "jdcloud":
+        audit = _jdcloud_chat_audit(settings)
+    else:
+        audit = audit_image
 
     def run_audit(
         image_path: Path,
@@ -88,6 +87,12 @@ def _artifact_model_slug(model: str) -> str:
     return slug or "model"
 
 
+def _jdcloud_chat_audit(settings: Settings) -> Callable[..., dict[str, Any]]:
+    if settings.jdcloud_openai_audit_prompt_mode == "light":
+        return audit_image_with_chat_light
+    return audit_image_with_chat
+
+
 def _dual_auditor(
     settings: Settings,
     declared_screen_size: tuple[int, int] | None = None,
@@ -99,6 +104,7 @@ def _dual_auditor(
         timeout=settings.audit_timeout_seconds,
         max_retries=0,
     )
+    chat_audit = _jdcloud_chat_audit(settings)
 
     def audit(
         image_path: Path,
@@ -109,7 +115,7 @@ def _dual_auditor(
         image_size = _image_size(image_path)
         for index, model in enumerate(settings.audit_models, start=1):
             try:
-                result = audit_image_with_chat(
+                result = chat_audit(
                     client,
                     model,
                     image_path,
@@ -125,6 +131,18 @@ def _dual_auditor(
                 attempts.append({"model": model, "audit": result, "image_size": image_size})
             except Exception as exc:  # noqa: BLE001 - one model failure should not fail the other.
                 attempts.append({"model": model, "error": _short_error(exc)})
+        primary_attempt = attempts[0] if attempts else {}
+        if isinstance(primary_attempt.get("audit"), dict):
+            result = merge_primary_with_candidates(primary_attempt, attempts[1:])
+            failures = [
+                {"model": str(attempt.get("model") or ""), "error": str(attempt.get("error") or "")}
+                for attempt in attempts[1:]
+                if attempt.get("error")
+            ]
+            result["model_comparison"]["model_failures"] = failures
+            if failures:
+                result["overall_conclusion"] = f"候选模型降级审核：{result['overall_conclusion']}"
+            return result
         return merge_audit_attempts(attempts)
 
     return audit

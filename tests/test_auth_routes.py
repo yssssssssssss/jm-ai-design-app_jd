@@ -103,6 +103,19 @@ def test_app_factory_uses_package_static_and_templates(settings, tmp_path, monke
     assert 'name="csrf_token"' in response.text
 
 
+def test_app_serves_spec_reference_assets(settings):
+    app = create_app(settings)
+
+    with TestClient(app) as client:
+        response = client.get("/spec-assets/color.png")
+        snippet = client.get("/spec-snippets/color-ai-main-color.png")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/png"
+    assert snippet.status_code == 200
+    assert snippet.headers["content-type"] == "image/png"
+
+
 def test_register_rejects_duplicate_username(client):
     response = _register(client)
     assert response.status_code == 303

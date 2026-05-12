@@ -45,7 +45,7 @@ def test_build_issues_json_keeps_only_issues_with_bbox():
     ]
 
 
-def test_build_issues_json_for_image_scales_half_size_model_bboxes():
+def test_build_issues_json_for_image_keeps_half_size_model_bboxes_unscaled():
     issues = [
         {
             "id": "invite-button",
@@ -65,11 +65,11 @@ def test_build_issues_json_for_image_scales_half_size_model_bboxes():
 
     result = build_issues_json_for_image(issues, image_size=(3184, 1736))
 
-    assert result[0]["bbox"] == [2380.0, 28.0, 290.0, 76.0]
-    assert result[1]["bbox"] == [482.0, 144.0, 940.0, 80.0]
+    assert result[0]["bbox"] == [1190.0, 14.0, 145.0, 38.0]
+    assert result[1]["bbox"] == [241.0, 72.0, 470.0, 40.0]
 
 
-def test_build_issues_json_for_image_scales_logical_canvas_bboxes_by_axis():
+def test_build_issues_json_for_image_keeps_logical_canvas_bboxes_unscaled():
     issues = [
         {
             "id": "renew-pill",
@@ -89,8 +89,8 @@ def test_build_issues_json_for_image_scales_logical_canvas_bboxes_by_axis():
 
     result = build_issues_json_for_image(issues, image_size=(3184, 1736))
 
-    assert result[0]["bbox"] == [2864.0, 43.2, 160.0, 51.2]
-    assert result[1]["bbox"] == [496.0, 1411.2, 1430.0, 352.0]
+    assert result[0]["bbox"] == [1432.0, 27.0, 80.0, 32.0]
+    assert result[1]["bbox"] == [248.0, 882.0, 715.0, 220.0]
 
 
 def test_write_regions_json(tmp_path):
@@ -179,3 +179,27 @@ def test_run_annotations_creates_annotated_image_and_crop(tmp_path):
 
     assert (output_dir / "annotated.png").exists()
     assert (output_dir / "issue-color-01.png").exists()
+
+
+def test_run_annotations_draws_high_visibility_border(tmp_path):
+    image = tmp_path / "input.png"
+    Image.new("RGB", (80, 80), color=(107, 54, 250)).save(image)
+    issues = tmp_path / "issues.json"
+    output_dir = tmp_path / "annotations"
+    write_json(
+        issues,
+        [
+            {
+                "id": "color-01",
+                "title": "颜色错误",
+                "severity": "中",
+                "category": "色彩",
+                "bbox": [20, 20, 30, 30],
+            }
+        ],
+    )
+
+    run_annotations(image, issues, output_dir)
+
+    annotated = Image.open(output_dir / "annotated.png").convert("RGB")
+    assert annotated.getpixel((35, 25)) == (181, 71, 8)

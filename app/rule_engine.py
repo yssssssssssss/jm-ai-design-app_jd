@@ -26,13 +26,13 @@ def apply_rule_review(
     reviewed = deepcopy(audit)
     _ensure_shape(reviewed)
     reviewed["issues"] = [_normalize_issue(issue, image_size) for issue in _list(reviewed.get("issues"))]
+    reviewed["rule_warnings"] = _list(reviewed.get("rule_warnings"))
 
     for issue in _color_issues_from_samples(tokens):
-        _upsert_issue(reviewed["issues"], issue)
+        _upsert_rule_finding(reviewed["issues"], reviewed["rule_warnings"], issue)
     for issue in _spacing_issues_from_measurements(measurements):
-        _upsert_issue(reviewed["issues"], issue)
+        _upsert_rule_finding(reviewed["issues"], reviewed["rule_warnings"], issue)
 
-    _finalize(reviewed)
     return reviewed
 
 
@@ -155,10 +155,14 @@ def _trusted_bbox(issue: dict[str, Any], image_size: tuple[int, int]) -> bool:
     return True
 
 
-def _upsert_issue(issues: list[dict[str, Any]], rule_issue: dict[str, Any]) -> None:
+def _upsert_rule_finding(
+    issues: list[dict[str, Any]],
+    warnings: list[dict[str, Any]],
+    rule_issue: dict[str, Any],
+) -> None:
     match = _find_matching_issue(issues, rule_issue)
     if match is None:
-        issues.append(rule_issue)
+        warnings.append(rule_issue)
         return
     match["severity"] = _higher_severity(match.get("severity"), rule_issue.get("severity"))
     match["current_observation"] = _join_sentences(
@@ -186,37 +190,6 @@ def _find_matching_issue(
         ):
             return issue
     return None
-
-
-def _finalize(audit: dict[str, Any]) -> None:
-    audit["issues"] = [_final_issue(issue, index) for index, issue in enumerate(audit["issues"], start=1)]
-    if audit["issues"]:
-        audit["checklist"] = [
-            {
-                "item": str(issue.get("location") or issue.get("category") or issue.get("id")),
-                "status": "不通过",
-                "evidence": str(issue.get("current_observation") or ""),
-            }
-            for issue in audit["issues"]
-        ]
-        audit["major_issues"] = [
-            _issue_summary(issue)
-            for issue in audit["issues"]
-            if issue.get("severity") in {"高", "中"}
-        ]
-        audit["overall_conclusion"] = f"规则复核完成：共发现 {len(audit['issues'])} 个 JM AI 设计规范问题。"
-
-
-def _final_issue(issue: dict[str, Any], index: int) -> dict[str, Any]:
-    output = dict(issue)
-    output["id"] = f"问题-{index:03d}"
-    return output
-
-
-def _issue_summary(issue: dict[str, Any]) -> str:
-    severity = str(issue.get("severity") or "")
-    location = str(issue.get("location") or issue.get("current_observation") or "")
-    return f"{severity}：{location}" if severity and location else location or severity
 
 
 def _higher_severity(left: Any, right: Any) -> str:

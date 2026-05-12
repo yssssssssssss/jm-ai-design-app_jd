@@ -46,9 +46,7 @@ def build_issues_json_for_image(
     issues: list[dict[str, Any]],
     image_size: tuple[int, int],
 ) -> list[dict[str, Any]]:
-    bboxes = [issue.get("bbox") for issue in issues]
-    scale_x, scale_y = _bbox_scale_for_image(bboxes, image_size)
-    return _build_issues_json(issues, scale_x=scale_x, scale_y=scale_y)
+    return _build_issues_json(issues, scale_x=1.0, scale_y=1.0)
 
 
 def _build_issues_json(

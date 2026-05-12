@@ -22,6 +22,7 @@ REQUIRED_KEYS = {
 }
 ARRAY_KEYS = REQUIRED_KEYS - {"screen_context", "overall_conclusion"}
 CHAT_AUDIT_MAX_TOKENS = 32768
+CHAT_AUDIT_LIGHT_MAX_TOKENS = 4096
 SEVERITY_MAP = {
     "critical": "高",
     "high": "高",
@@ -168,14 +169,70 @@ def build_audit_prompt(
         "问题 bbox 使用 [x, y, w, h] 截图像素坐标；无法可靠定位时 bbox 为 null。"
         "不要编造测量数据；只有能从截图判断或后续工具可测量的内容才写入证据请求。"
         "regions 字段用于请求测量区域，distances 字段用于请求间距测量。"
-        "必须逐项盘点顶部/右上角操作区的可见元素，包括下载客户端、邀好友赚套餐、"
-        "续费套餐、头像/徽章/皇冠、营销按钮、状态标签和品牌徽标；"
+        "必须覆盖色彩、字体、间距、AI 按钮、AI 标签、AI 图标、Header 层级、"
+        "页面布局和组件状态，不要只围绕顶部或右上角做判断。"
+        "右上角操作区仍需逐项盘点可见元素，包括下载客户端、邀好友赚套餐、"
+        "续费套餐、头像/徽章/皇冠、营销按钮、状态标签和品牌徽标。"
         "其中橙色、红色、绿色、青色、黄色等非 JM AI 色彩如果用于主操作、营销入口、"
-        "续费标签、头像徽章或品牌感知，必须写入 issues，不能只在 overall_conclusion、"
-        "passes 或 Header 层级描述中泛泛带过。多个不同违规色彩元素应拆成独立问题。"
+        "续费标签、头像徽章或品牌感知，应结合截图证据写入 issues；"
+        "多个不同违规元素应拆成独立问题。"
         f"{size_context}"
         "\n\nJM AI SPEC:\n"
         f"{spec_text}"
+    )
+
+
+def build_light_audit_prompt(
+    declared_screen_size: tuple[int, int] | None = None,
+    actual_image_size: tuple[int, int] | None = None,
+    scale_context: dict[str, Any] | None = None,
+    normalized_preview_size: tuple[int, int] | None = None,
+    experiment_variant: str | None = None,
+) -> str:
+    size_context = ""
+    if actual_image_size or declared_screen_size:
+        lines = ["\n\n尺寸上下文:"]
+        if actual_image_size:
+            lines.append(
+                f"- 上传图片实际像素尺寸：{actual_image_size[0]}px × {actual_image_size[1]}px。"
+            )
+        if declared_screen_size:
+            lines.append(
+                f"- 用户声明稿件基准尺寸：{declared_screen_size[0]}px × {declared_screen_size[1]}px。"
+            )
+        if scale_context:
+            lines.append(
+                "- 缩放上下文："
+                f"scale_x={scale_context['x']}, "
+                f"scale_y={scale_context['y']}, "
+                f"uniform={scale_context['uniform']}。"
+            )
+        if normalized_preview_size:
+            lines.append(
+                f"- 规范化辅助图尺寸：{normalized_preview_size[0]}px × {normalized_preview_size[1]}px。"
+            )
+        if experiment_variant:
+            lines.append(f"- 实验变体：{experiment_variant}。")
+        size_context = "\n".join(lines)
+
+    return (
+        "你是 JM AI 设计规范轻量审核助手。目标是在云端稳定返回可用 JSON，"
+        "不要做长篇推理，不要逐条复述规范。只根据截图可见证据判断。"
+        f"{size_context}"
+        "\n\n核心规则摘要："
+        "1. JM AI 品牌强调优先使用紫色系与 AI 渐变，主按钮、选中态、链接、状态强调不要随意使用普通蓝、橙、绿、红、黄。"
+        "2. 检查字体层级、字号观感、行高和文本密度；截图无法确认精确字体族时写入 cannot_verify。"
+        "3. 检查间距、内边距、卡片/表单密度、嵌套滚动和 Header 层级；无法精确测量时写入 cannot_verify。"
+        "4. 检查 AI 按钮、AI 标签、AI 图标、Header、右上角商业入口和状态徽章是否符合 JM AI 品牌感知。"
+        "\n\n输出要求："
+        "必须只输出一个 JSON 对象。顶层字段使用：screen_context(string), overall_conclusion(string), "
+        "major_issues(array), passes(array), issues(array), sample_points(array), regions(array), "
+        "distances(array), checklist(array), cannot_verify(array)。"
+        "最多输出 8 个高价值 issues；每个 issue 包含 id, category, severity(高/中/低), location, "
+        "current_observation, spec_expectation, recommendation, confidence, bbox。"
+        "bbox 使用截图像素 [x,y,w,h]，无法定位填 null。"
+        "sample_points、regions、distances 只在确实有助于后续本地取证时输出，否则为空数组。"
+        "所有字段值使用简体中文。"
     )
 
 
@@ -314,6 +371,17 @@ def parse_audit_json(
             raise AuditModelError(f"模型返回字段必须是数组: {key}")
 
     return data
+
+
+def parse_strict_audit_json(text: str) -> dict[str, Any]:
+    return parse_audit_json(text, allow_missing_arrays=False)
+
+
+def parse_lenient_chat_audit_json(
+    text: str,
+    image_size: tuple[int, int] | None = None,
+) -> dict[str, Any]:
+    return parse_audit_json(text, allow_missing_arrays=True, image_size=image_size)
 
 
 def _reject_empty_chat_audit(data: dict[str, Any]) -> None:
@@ -1004,7 +1072,7 @@ def audit_image(
         request["reasoning"] = {"effort": reasoning_effort}
 
     response = client.responses.create(**request)
-    return parse_audit_json(response.output_text)
+    return parse_strict_audit_json(response.output_text)
 
 
 def audit_image_with_chat(
@@ -1059,8 +1127,9 @@ def audit_image_with_chat(
         ],
         "response_format": {"type": "json_object"},
         "max_tokens": CHAT_AUDIT_MAX_TOKENS,
-        "extra_body": {"thinking": {"type": "disabled"}},
     }
+    if reasoning_effort:
+        request["reasoning"] = {"effort": reasoning_effort}
 
     response = client.chat.completions.create(**request)
     choice = response.choices[0]
@@ -1072,8 +1141,66 @@ def audit_image_with_chat(
             f" (finish_reason={finish_reason}). "
             "请提高输出 token 上限，或检查该模型是否支持图片 JSON 输出。"
         )
-    return parse_audit_json(
+    return parse_lenient_chat_audit_json(
         content,
-        allow_missing_arrays=True,
+        image_size=actual_image_size,
+    )
+
+
+def audit_image_with_chat_light(
+    client: _OpenAIClient,
+    model: str,
+    image_path: Path,
+    spec_text: str,
+    reasoning_effort: str | None = None,
+    declared_screen_size: tuple[int, int] | None = None,
+    scale_context: dict[str, Any] | None = None,
+    normalized_preview_path: Path | None = None,
+    experiment_variant: str | None = None,
+) -> dict[str, Any]:
+    del spec_text
+    actual_image_size = _image_size(image_path)
+    normalized_size = _image_size(normalized_preview_path) if normalized_preview_path else None
+    prompt = build_light_audit_prompt(
+        declared_screen_size=declared_screen_size,
+        actual_image_size=actual_image_size,
+        scale_context=scale_context,
+        normalized_preview_size=normalized_size,
+        experiment_variant=experiment_variant,
+    )
+    content: list[dict[str, Any]] = [
+        {"type": "text", "text": prompt},
+        {"type": "image_url", "image_url": {"url": image_data_url(image_path)}},
+    ]
+    if normalized_preview_path:
+        content.append(
+            {"type": "image_url", "image_url": {"url": image_data_url(normalized_preview_path)}}
+        )
+    request: dict[str, Any] = {
+        "model": model,
+        "messages": [
+            {
+                "role": "user",
+                "content": content,
+            }
+        ],
+        "response_format": {"type": "json_object"},
+        "max_tokens": CHAT_AUDIT_LIGHT_MAX_TOKENS,
+    }
+    if reasoning_effort:
+        request["reasoning"] = {"effort": reasoning_effort}
+
+    response = client.chat.completions.create(**request)
+    choice = response.choices[0]
+    content = choice.message.content
+    if not isinstance(content, str) or not content.strip():
+        finish_reason = getattr(choice, "finish_reason", None)
+        raise AuditModelError(
+            "模型没有返回可解析的轻量审核 JSON 内容"
+            f" (finish_reason={finish_reason}). "
+            "请检查该模型是否支持图片 JSON 输出，或切回 full prompt mode。"
+        )
+    return parse_lenient_chat_audit_json(
+        content,
         image_size=actual_image_size,
     )

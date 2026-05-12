@@ -1,0 +1,186 @@
+{
+  "version": 1,
+  "assets": [
+    {
+      "id": "button-primary",
+      "label": "主要按钮填充",
+      "url": "/spec-snippets/button-primary.png",
+      "source": "buttons.png",
+      "bbox": [
+        105,
+        875,
+        940,
+        1198
+      ],
+      "keywords": [
+        "主要按钮",
+        "主按钮",
+        "primary button",
+        "填充按钮",
+        "ai 按钮"
+      ]
+    },
+    {
+      "id": "button-secondary",
+      "label": "次要按钮填充",
+      "url": "/spec-snippets/button-secondary.png",
+      "source": "buttons.png",
+      "bbox": [
+        1040,
+        875,
+        1845,
+        1198
+      ],
+      "keywords": [
+        "次要按钮",
+        "secondary button",
+        "浅色按钮",
+        "ghost",
+        "次级填充"
+      ]
+    },
+    {
+      "id": "button-outline",
+      "label": "主要线性按钮",
+      "url": "/spec-snippets/button-outline.png",
+      "source": "buttons.png",
+      "bbox": [
+        1978,
+        875,
+        2795,
+        1198
+      ],
+      "keywords": [
+        "线性按钮",
+        "描边按钮",
+        "边框按钮",
+        "outline button"
+      ]
+    },
+    {
+      "id": "button-sparkle",
+      "label": "AI 按钮 Sparkle 标识",
+      "url": "/spec-snippets/button-sparkle.png",
+      "source": "buttons.png",
+      "bbox": [
+        105,
+        875,
+        940,
+        1198
+      ],
+      "keywords": [
+        "sparkle",
+        "ai sparkle",
+        "ai 图标",
+        "ai标识",
+        "生成类 ai",
+        "智能生成"
+      ]
+    },
+    {
+      "id": "tag-ai-capsule",
+      "label": "AI 标签样式",
+      "url": "/spec-snippets/tag-ai-capsule.png",
+      "source": "tags.png",
+      "bbox": [
+        130,
+        640,
+        1180,
+        900
+      ],
+      "keywords": [
+        "ai 标签",
+        "标签",
+        "胶囊",
+        "tag",
+        "角标",
+        "badge"
+      ]
+    },
+    {
+      "id": "color-ai-brand-color",
+      "label": "AI 品牌色板",
+      "url": "/spec-snippets/color-ai-brand-color.png",
+      "source": "manual",
+      "keywords": [
+        "品牌色",
+        "色板",
+        "ai 色彩体系",
+        "品牌色板",
+        "ai 品牌色",
+        "color-ai-brand-color",
+        "color ai brand color",
+        "brand"
+      ]
+    },
+    {
+      "id": "color-ai-light-color",
+      "label": "AI light 纯色",
+      "url": "/spec-snippets/color-ai-light-color.png",
+      "source": "manual",
+      "keywords": [
+        "ai/ai-light-normal",
+        "#f3f0ff",
+        "light 纯色",
+        "浅色",
+        "浅紫",
+        "浅色按钮",
+        "color-ai-light-color",
+        "color ai light color",
+        "light"
+      ]
+    },
+    {
+      "id": "color-ai-light-gradient",
+      "label": "AI light 渐变色",
+      "url": "/spec-snippets/color-ai-light-gradient.png",
+      "source": "manual",
+      "keywords": [
+        "gradient/ai/ai-light-normal",
+        "light 渐变",
+        "浅色渐变",
+        "浅紫渐变",
+        "color-ai-light-gradient",
+        "color ai light gradient",
+        "渐变",
+        "浅色",
+        "light"
+      ]
+    },
+    {
+      "id": "color-ai-main-color",
+      "label": "AI 主纯色",
+      "url": "/spec-snippets/color-ai-main-color.png",
+      "source": "manual",
+      "keywords": [
+        "ai/ai-normal",
+        "#6b36fa",
+        "主纯色",
+        "主色",
+        "紫色",
+        "ai 主色",
+        "color-ai-main-color",
+        "color ai main color",
+        "main"
+      ]
+    },
+    {
+      "id": "color-ai-main-gradient",
+      "label": "AI 主渐变色",
+      "url": "/spec-snippets/color-ai-main-gradient.png",
+      "source": "manual",
+      "keywords": [
+        "gradient/ai/ai-normal",
+        "主渐变",
+        "ai 渐变",
+        "渐变色",
+        "主渐变色",
+        "color-ai-main-gradient",
+        "color ai main gradient",
+        "渐变",
+        "主色",
+        "main"
+      ]
+    }
+  ]
+}

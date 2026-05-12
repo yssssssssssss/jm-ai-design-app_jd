@@ -20,6 +20,7 @@ FALSE_VALUES = {"false", "0", "no", "off"}
 REASONING_EFFORTS = {"none", "minimal", "low", "medium", "high", "xhigh"}
 AUDIT_MODEL_PROVIDERS = {"openai", "jdcloud"}
 AUDIT_MODES = {"single", "dual"}
+JDCLOUD_AUDIT_PROMPT_MODES = {"full", "light"}
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
@@ -41,6 +42,7 @@ class Settings:
     jdcloud_openai_base_url: str | None = None
     jdcloud_openai_audit_model: str | None = None
     jdcloud_openai_audit_models: list[str] | None = None
+    jdcloud_openai_audit_prompt_mode: str = "full"
     jdcloud_openai_reasoning_effort: str | None = None
     jdcloud_openai_timeout_seconds: int | None = None
     max_upload_files: int = 8
@@ -171,6 +173,15 @@ def _load_jdcloud_audit_models(provider: str, mode: str) -> list[str]:
     return models
 
 
+def _load_jdcloud_audit_prompt_mode() -> str:
+    mode = (os.getenv("JDCLOUD_OPENAI_AUDIT_PROMPT_MODE") or "full").strip().lower()
+    if mode not in JDCLOUD_AUDIT_PROMPT_MODES:
+        raise RuntimeError(
+            "Invalid JDCLOUD_OPENAI_AUDIT_PROMPT_MODE value. Expected full or light"
+        )
+    return mode
+
+
 def _load_jdcloud_required_values(provider: str, mode: str) -> dict[str, str | None]:
     keys = [
         "JDCLOUD_OPENAI_API_KEY",
@@ -219,6 +230,7 @@ def load_settings() -> Settings:
         jdcloud_openai_base_url=jdcloud_values["JDCLOUD_OPENAI_BASE_URL"],
         jdcloud_openai_audit_model=jdcloud_values["JDCLOUD_OPENAI_AUDIT_MODEL"],
         jdcloud_openai_audit_models=jdcloud_audit_models,
+        jdcloud_openai_audit_prompt_mode=_load_jdcloud_audit_prompt_mode(),
         jdcloud_openai_reasoning_effort=_load_reasoning_effort_env(
             "JDCLOUD_OPENAI_REASONING_EFFORT"
         ),

@@ -16,6 +16,9 @@ COLORS = {
     "中": (181, 71, 8),
     "低": (107, 114, 128),
 }
+MIN_BORDER_WIDTH = 6
+MAX_BORDER_WIDTH = 12
+BORDER_WIDTH_SCALE = 240
 
 
 def load_issues(path: Path) -> list[dict[str, Any]]:
@@ -42,6 +45,11 @@ def clamp_bbox(bbox: list[float], width: int, height: int, pad: int = 24) -> tup
     right = min(width, int(round(x + w)) + pad)
     bottom = min(height, int(round(y + h)) + pad)
     return left, top, right, bottom
+
+
+def annotation_border_width(width: int, height: int) -> int:
+    scaled = round(min(width, height) / BORDER_WIDTH_SCALE)
+    return max(MIN_BORDER_WIDTH, min(MAX_BORDER_WIDTH, scaled))
 
 
 def draw_label(draw: ImageDraw.ImageDraw, xy: tuple[int, int], text: str, color: tuple[int, int, int]) -> None:
@@ -74,6 +82,7 @@ def main() -> int:
     draw = ImageDraw.Draw(annotated)
 
     width, height = image.size
+    border_width = annotation_border_width(width, height)
 
     for index, issue in enumerate(issues, start=1):
         issue_id = str(issue.get("id") or f"issue-{index}")
@@ -85,8 +94,7 @@ def main() -> int:
         w = max(1, min(w, width - x))
         h = max(1, min(h, height - y))
 
-        for offset in range(3):
-            draw.rectangle((x - offset, y - offset, x + w + offset, y + h + offset), outline=color)
+        draw.rectangle((x, y, x + w, y + h), outline=color, width=border_width)
         draw_label(draw, (x, max(0, y - 22)), f"{index}. {issue_id}", color)
 
         crop_box = clamp_bbox([x, y, w, h], width, height)

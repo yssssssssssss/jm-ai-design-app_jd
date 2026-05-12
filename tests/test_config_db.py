@@ -39,6 +39,7 @@ OPTIONAL_ENV = [
     "JDCLOUD_OPENAI_BASE_URL",
     "JDCLOUD_OPENAI_AUDIT_MODEL",
     "JDCLOUD_OPENAI_AUDIT_MODELS",
+    "JDCLOUD_OPENAI_AUDIT_PROMPT_MODE",
     "JDCLOUD_OPENAI_REASONING_EFFORT",
     "JDCLOUD_OPENAI_TIMEOUT_SECONDS",
     "SECURE_COOKIES",
@@ -104,6 +105,7 @@ def test_settings_loads_dotenv_file(tmp_path, monkeypatch):
                 "JDCLOUD_OPENAI_API_KEY=jd-key",
                 "JDCLOUD_OPENAI_BASE_URL=https://modelservice.jdcloud.com/v1/",
                 "JDCLOUD_OPENAI_AUDIT_MODEL=Kimi-K2.6",
+                "JDCLOUD_OPENAI_AUDIT_PROMPT_MODE=light",
                 "JDCLOUD_OPENAI_REASONING_EFFORT=",
                 "JDCLOUD_OPENAI_TIMEOUT_SECONDS=60",
                 "SECURE_COOKIES=true",
@@ -124,6 +126,7 @@ def test_settings_loads_dotenv_file(tmp_path, monkeypatch):
     assert settings.audit_api_key == "jd-key"
     assert settings.audit_base_url == "https://modelservice.jdcloud.com/v1/"
     assert settings.audit_model == "Kimi-K2.6"
+    assert settings.jdcloud_openai_audit_prompt_mode == "light"
     assert settings.audit_reasoning_effort is None
     assert settings.audit_timeout_seconds == 60
     assert settings.data_dir == data_dir
@@ -271,6 +274,22 @@ def test_settings_rejects_unknown_audit_model_provider(tmp_path, monkeypatch):
         assert "AUDIT_MODEL_PROVIDER" in str(exc)
     else:
         raise AssertionError("load_settings should reject unknown audit provider")
+
+
+def test_settings_rejects_unknown_jdcloud_prompt_mode(tmp_path, monkeypatch):
+    _set_required_env(monkeypatch, tmp_path)
+    monkeypatch.setenv("AUDIT_MODEL_PROVIDER", "jdcloud")
+    monkeypatch.setenv("JDCLOUD_OPENAI_API_KEY", "jd-key")
+    monkeypatch.setenv("JDCLOUD_OPENAI_BASE_URL", "https://modelservice.jdcloud.com/v1/")
+    monkeypatch.setenv("JDCLOUD_OPENAI_AUDIT_MODEL", "GPT-5.5")
+    monkeypatch.setenv("JDCLOUD_OPENAI_AUDIT_PROMPT_MODE", "deepest")
+
+    try:
+        load_settings()
+    except RuntimeError as exc:
+        assert "JDCLOUD_OPENAI_AUDIT_PROMPT_MODE" in str(exc)
+    else:
+        raise AssertionError("load_settings should reject unknown JDCloud prompt mode")
 
 
 def test_settings_requires_jdcloud_fields_when_provider_is_jdcloud(

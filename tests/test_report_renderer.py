@@ -40,7 +40,7 @@ def test_render_report_html_escapes_user_text_and_includes_image_sections():
         ],
     )
 
-    assert "<script>" not in html
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in html
     assert "JM AI 设计规范审核报告" in html
     assert "image-001.png" in html
     assert "审核综述" in html
@@ -112,6 +112,139 @@ def test_render_report_html_includes_model_comparison_when_present():
     assert "需人工复核" in html
     assert "模型失败信息" not in html
     assert "timeout" not in html
+
+
+def test_render_report_html_includes_primary_candidate_review_items():
+    audit = _audit_payload()
+    audit["issues"][0]["agreement"] = "promoted_candidate"
+    audit["model_comparison"] = {
+        "models": ["GPT-5.5", "Kimi-K2.6"],
+        "agreed_issues": [],
+        "promoted_issues": [audit["issues"][0]],
+        "primary_only_issues": [],
+        "gpt_only_issues": [],
+        "kimi_only_issues": [],
+        "conflicts": [],
+        "review_candidates": [
+            {
+                "id": "kimi-2",
+                "location": "左上角品牌区",
+                "current_observation": "候选模型认为品牌色需人工确认",
+                "source_model": "Kimi-K2.6",
+            }
+        ],
+        "model_failures": [],
+    }
+
+    html = render_report_html(
+        task={"title": "审核", "summary": "完成"},
+        image_results=[{"filename": "image-001.png", "audit": audit, "artifacts": {}}],
+    )
+
+    assert "双方一致：1" in html
+    assert "单模型补充：0" in html
+    assert "kimi-2" in html
+    assert "候选模型认为品牌色需人工确认" in html
+
+
+def test_render_report_html_includes_rule_warnings():
+    audit = _audit_payload()
+    audit["rule_warnings"] = [
+        {
+            "category": "色彩",
+            "location": "邀好友赚套餐按钮",
+            "current_observation": "实测颜色 #F37021 偏离 JM AI 规范色。",
+            "rule_source": "color_sample",
+        }
+    ]
+
+    html = render_report_html(
+        task={"title": "审核", "summary": "完成"},
+        image_results=[{"filename": "image-001.png", "audit": audit, "artifacts": {}}],
+    )
+
+    assert "规则证据提示" in html
+    assert "邀好友赚套餐按钮" in html
+    assert "color_sample" in html
+
+
+def test_issues_table_hides_spec_expectation_and_shows_reference_asset_image():
+    html = render_report_html(
+        task={"title": "审核", "summary": "完成"},
+        image_results=[{"filename": "image-001.png", "audit": _audit_payload(), "artifacts": {}}],
+    )
+
+    issues_html = html.split("详细问题清单", 1)[1].split("符合规范的点", 1)[0]
+    assert "<th>规范要求</th>" not in issues_html
+    assert "应使用 #6B36FA" not in issues_html
+    assert "<th>编号</th>" in issues_html
+    assert "<td>color-01</td>" in issues_html
+    assert "<th>参考素材</th>" in issues_html
+    assert 'class="spec-reference"' in issues_html
+    assert 'src="/spec-snippets/color-ai-main-color.png"' in issues_html
+    assert 'alt="AI 主纯色"' in issues_html
+    assert "修改建议" in issues_html
+
+
+def test_issues_table_falls_back_to_category_asset_when_no_snippet_matches():
+    audit = _audit_payload()
+    audit["issues"][0]["location"] = "品牌区域"
+    audit["issues"][0]["current_observation"] = "颜色偏差"
+    audit["issues"][0]["recommendation"] = "统一为规范配色，不指定具体 token"
+
+    html = render_report_html(
+        task={"title": "审核", "summary": "完成"},
+        image_results=[{"filename": "image-001.png", "audit": audit, "artifacts": {}}],
+    )
+
+    issues_html = html.split("详细问题清单", 1)[1].split("符合规范的点", 1)[0]
+    assert 'src="/spec-assets/color.png"' in issues_html
+    assert 'alt="色彩规范参考"' in issues_html
+
+
+def test_issues_table_prefers_specific_spec_snippet_when_index_matches():
+    audit = _audit_payload()
+    audit["issues"][0]["recommendation"] = "改为 ai/ai-normal 主色 token"
+
+    html = render_report_html(
+        task={"title": "审核", "summary": "完成"},
+        image_results=[{"filename": "image-001.png", "audit": audit, "artifacts": {}}],
+    )
+
+    issues_html = html.split("详细问题清单", 1)[1].split("符合规范的点", 1)[0]
+    assert 'src="/spec-snippets/color-ai-main-color.png"' in issues_html
+    assert 'src="/spec-assets/color.png"' not in issues_html
+    assert "ai/ai-normal" in issues_html
+
+
+def test_reference_asset_images_open_zoom_modal():
+    html = render_report_html(
+        task={"title": "审核", "summary": "完成"},
+        image_results=[{"filename": "image-001.png", "audit": _audit_payload(), "artifacts": {}}],
+    )
+
+    issues_html = html.split("详细问题清单", 1)[1].split("符合规范的点", 1)[0]
+    assert '<label class="spec-reference-trigger" for="image-1-reference-1-open"' in issues_html
+    assert 'aria-label="放大查看 AI 主纯色"' in issues_html
+    assert '<input type="checkbox" class="image-modal-toggle" id="image-1-reference-1-open">' in issues_html
+    assert 'class="image-modal" role="dialog" aria-modal="true" aria-label="AI 主纯色"' in issues_html
+    assert '<label class="image-modal-close" for="image-1-reference-1-open" role="button" aria-label="关闭">×</label>' in issues_html
+    assert 'href="#report-top"' not in issues_html
+    assert 'href="#image-1-reference-1"' not in issues_html
+    assert 'class="image-modal-viewport"' not in issues_html
+    assert 'data-zoomable-image' in issues_html
+    assert 'draggable="false"' in issues_html
+    assert "滚轮或触控板缩放" in issues_html
+    assert "拖动图片查看不同位置" in issues_html
+    assert ".image-modal-toggle:checked + .image-modal" in html
+    assert ".image-modal-content { position: relative; z-index: 1; max-width: 94vw; max-height: 92vh; margin: 0; background: transparent;" in html
+    assert ".image-modal-img.is-dragging" in html
+    assert "addEventListener(\"wheel\"" in html
+    assert "addEventListener(\"pointerdown\"" in html
+    assert "addEventListener(\"pointermove\"" in html
+    assert "setPointerCapture" in html
+    assert "event.preventDefault()" in html
+    assert "image.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`" in html
 
 
 def test_render_report_html_builds_protected_artifact_urls_when_task_id_is_known():
@@ -311,13 +444,20 @@ def test_render_report_html_matches_skill_report_structure():
     assert "全图标注" in html
     assert "issue-color-01.png" in html
     assert "<figcaption>全图标注</figcaption><img" in html
-    assert "color-01：绿色按钮" in html
-    assert "tag-01：功能胶囊不符合 JM AI tag/button" in html
+    screenshots_html = html.split("问题截图", 1)[1].split("详细问题清单", 1)[0]
+    assert screenshots_html.count("<figcaption>修改建议</figcaption>") == 2
+    assert "color-01：绿色按钮" not in screenshots_html
+    assert "tag-01：功能胶囊不符合 JM AI tag/button" not in screenshots_html
     assert html.index("全图标注") < html.index("issue-color-01.png")
     assert "<th>优先级</th>" not in html
     assert '<table class="issues-table">' in html
     assert ".issues-table th:nth-child(1), .issues-table td:nth-child(1) { width: 9%; }" in html
-    assert ".issues-table th:nth-child(2), .issues-table td:nth-child(2) { width: 18%; }" in html
+    assert ".issues-table th:nth-child(2), .issues-table td:nth-child(2) { width: 13%; }" in html
+    assert ".issues-table th:nth-child(6), .issues-table td:nth-child(6) { width: 15%; }" in html
+    assert "<th>规范要求</th>" not in html
+    assert "<th>参考素材</th>" in html
+    assert "/spec-snippets/color-ai-main-color.png" in html
+    assert "/spec-snippets/tag-ai-capsule.png" in html
     assert "置信度" not in html
     assert "待确认" in html
     assert "无法确认项" not in html

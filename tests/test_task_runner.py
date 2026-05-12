@@ -158,7 +158,7 @@ def test_run_task_dual_mode_writes_model_artifacts_and_merged_audit(monkeypatch,
     assert (artifact_dir / "audit.json").exists()
     assert (artifact_dir / "annotated.png").exists()
     merged_audit = json.loads((artifact_dir / "audit.json").read_text(encoding="utf-8"))
-    assert merged_audit["issues"][0]["agreement"] == "both"
+    assert merged_audit["issues"][0]["agreement"] == "promoted_candidate"
     assert merged_audit["model_comparison"]["models"] == ["GPT-5.5", "Kimi-K2.6"]
     assert seen_models == ["GPT-5.5", "Kimi-K2.6"]
 
@@ -236,7 +236,7 @@ def test_run_task_dual_mode_merges_scaled_model_bboxes_before_screenshots(monkey
     merged_audit = json.loads((artifact_dir / "audit.json").read_text(encoding="utf-8"))
     issues_json = json.loads((artifact_dir / "issues.json").read_text(encoding="utf-8"))
     assert len(merged_audit["issues"]) == 1
-    assert merged_audit["issues"][0]["agreement"] == "both"
+    assert merged_audit["issues"][0]["agreement"] == "promoted_candidate"
     assert issues_json[0]["bbox"] == [2609.0, 18.0, 226.0, 63.0]
 
 
@@ -350,7 +350,7 @@ def test_run_task_dual_mode_succeeds_when_one_model_fails(monkeypatch, tmp_path)
     merged_audit = json.loads((artifact_dir / "audit.json").read_text(encoding="utf-8"))
     assert refreshed is not None
     assert refreshed.status == "succeeded"
-    assert merged_audit["issues"][0]["agreement"] == "gpt_only"
+    assert merged_audit["issues"][0]["agreement"] == "primary_only"
     assert merged_audit["model_comparison"]["model_failures"] == [
         {"model": "Kimi-K2.6", "error": "timeout"}
     ]
@@ -679,9 +679,10 @@ def test_run_task_applies_rule_review_before_writing_final_audit(monkeypatch, tm
     artifact_dir = dirs.artifacts / "image-001"
     final_audit = json.loads((artifact_dir / "audit.json").read_text(encoding="utf-8"))
     issues_json = json.loads((artifact_dir / "issues.json").read_text(encoding="utf-8"))
-    assert final_audit["issues"][0]["rule_source"] == "color_sample"
-    assert final_audit["issues"][0]["location"] == "邀好友赚套餐按钮"
-    assert issues_json[0]["bbox"] == [8.0, 8.0, 24.0, 24.0]
+    assert final_audit["issues"] == []
+    assert final_audit["rule_warnings"][0]["rule_source"] == "color_sample"
+    assert final_audit["rule_warnings"][0]["location"] == "邀好友赚套餐按钮"
+    assert issues_json == []
 
 
 def test_run_task_omits_design_size_when_task_has_no_declared_size(monkeypatch, tmp_path):
@@ -908,6 +909,69 @@ def test_default_auditor_uses_jdcloud_chat_when_configured(monkeypatch, tmp_path
     assert captured_audit["spec_text"] == "spec"
     assert captured_audit["reasoning_effort"] is None
     assert captured_audit["declared_screen_size"] == (1440, 900)
+
+
+def test_default_auditor_uses_jdcloud_light_chat_when_configured(monkeypatch, tmp_path):
+    settings = Settings(
+        openai_api_key="key",
+        app_secret_key="secret",
+        register_invite_code="invite",
+        initial_admin_username="admin",
+        initial_admin_password="password123",
+        data_dir=tmp_path,
+        audit_model_provider="jdcloud",
+        jdcloud_openai_api_key="jd-key",
+        jdcloud_openai_base_url="https://modelservice.jdcloud.com/v1/",
+        jdcloud_openai_audit_model="GPT-5.5",
+        jdcloud_openai_audit_prompt_mode="light",
+    )
+    captured_audit = {}
+
+    class FakeClient:
+        def __init__(self, **kwargs):
+            pass
+
+    def fake_full_audit(*args, **kwargs):
+        raise AssertionError("full chat audit should not be used in light mode")
+
+    def fake_light_audit(
+        client,
+        model,
+        image_path,
+        spec_text,
+        reasoning_effort=None,
+        declared_screen_size=None,
+        scale_context=None,
+    ):
+        captured_audit.update(
+            {
+                "model": model,
+                "image_path": image_path,
+                "spec_text": spec_text,
+                "declared_screen_size": declared_screen_size,
+                "scale_context": scale_context,
+            }
+        )
+        return {}
+
+    monkeypatch.setattr(task_runner, "OpenAI", FakeClient)
+    monkeypatch.setattr(task_runner, "audit_image_with_chat", fake_full_audit)
+    monkeypatch.setattr(task_runner, "audit_image_with_chat_light", fake_light_audit)
+    spec_path = tmp_path / "spec.md"
+    spec_path.write_text("spec", encoding="utf-8")
+    monkeypatch.setattr(task_runner, "SPEC_PATH", spec_path)
+
+    auditor = task_runner._default_auditor(settings, declared_screen_size=(1440, 900))
+    image_path = tmp_path / "screen.png"
+    auditor(image_path, scale_context={"x": 1, "y": 1, "uniform": True})
+
+    assert captured_audit == {
+        "model": "GPT-5.5",
+        "image_path": image_path,
+        "spec_text": "spec",
+        "declared_screen_size": (1440, 900),
+        "scale_context": {"x": 1, "y": 1, "uniform": True},
+    }
 
 
 def test_default_auditor_passes_scale_context(monkeypatch, tmp_path):
