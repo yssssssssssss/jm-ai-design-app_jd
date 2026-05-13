@@ -46,6 +46,12 @@ def test_normalize_subcategory_preserves_canonical_ids():
     assert normalize_subcategory("low_contrast", "color_gradient") == "low_contrast"
 
 
+def test_normalize_subcategory_accepts_canonical_id_variants():
+    assert normalize_subcategory("off-token-color", "color_gradient") == "off_token_color"
+    assert normalize_subcategory("off token color", "color_gradient") == "off_token_color"
+    assert normalize_subcategory("Off Token Color", "color_gradient") == "off_token_color"
+
+
 def test_normalize_subcategory_does_not_expand_short_partial_aliases():
     assert normalize_subcategory("off", "color_gradient") == "off"
     assert normalize_subcategory("ai", "color_gradient") == "ai"

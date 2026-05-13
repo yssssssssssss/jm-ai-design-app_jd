@@ -95,6 +95,10 @@ CANONICAL_SUBCATEGORIES = {
     for aliases in SUBCATEGORY_ALIASES.values()
     for subcategory in aliases.values()
 }
+CANONICAL_SUBCATEGORY_KEYS = {
+    "".join(ch for ch in subcategory.lower() if ch.isalnum()): subcategory
+    for subcategory in CANONICAL_SUBCATEGORIES
+}
 
 CATEGORY_KEYWORDS = (
     ("color_gradient", {"color", "colour", "gradient"}, ("颜色", "色彩", "渐变")),
@@ -143,6 +147,8 @@ def normalize_subcategory(value: Any, category: Any) -> str:
     if raw_key in CANONICAL_SUBCATEGORIES:
         return raw_key
     key = _normalized(raw)
+    if key in CANONICAL_SUBCATEGORY_KEYS:
+        return CANONICAL_SUBCATEGORY_KEYS[key]
     aliases = SUBCATEGORY_ALIASES.get(category_key, {})
     if raw_key in aliases:
         return aliases[raw_key]
