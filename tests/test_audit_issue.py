@@ -105,3 +105,11 @@ def test_normalize_issue_preserves_zero_observation_text():
 
 def test_normalize_issue_preserves_false_observation_text():
     assert normalize_issue(False, index=5)["current_observation"] == "False"
+
+
+def test_normalize_issue_preserves_zero_current_observation_field():
+    assert normalize_issue({"current_observation": 0}, index=6)["current_observation"] == "0"
+
+
+def test_normalize_issue_preserves_false_current_observation_field():
+    assert normalize_issue({"current_observation": False}, index=7)["current_observation"] == "False"

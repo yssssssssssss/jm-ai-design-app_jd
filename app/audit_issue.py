@@ -22,6 +22,13 @@ def _text(value: Any) -> str:
     return str(value).strip()
 
 
+def _first_present(*values: Any) -> Any:
+    for value in values:
+        if value is not None:
+            return value
+    return None
+
+
 def _key_text(value: Any) -> str:
     text = _text(value).lower()
     return "-".join("".join(ch if ch.isalnum() or ch in "._" else " " for ch in text).split())
@@ -76,9 +83,9 @@ def normalize_issue(
 
     category = normalize_category(issue.get("category"))
     subcategory = normalize_subcategory(issue.get("subcategory"), category)
-    location = _text(issue.get("location") or issue.get("title") or issue.get("id") or "问题")
-    target_element = _text(issue.get("target_element") or location)
-    violation_type = _text(issue.get("violation_type") or f"{category}.{subcategory}")
+    location = _text(_first_present(issue.get("location"), issue.get("title"), issue.get("id"), "问题"))
+    target_element = _text(_first_present(issue.get("target_element"), location))
+    violation_type = _text(_first_present(issue.get("violation_type"), f"{category}.{subcategory}"))
 
     output = {
         **issue,
@@ -90,7 +97,9 @@ def normalize_issue(
         "violation_type": violation_type,
         "severity": _severity(issue.get("severity")),
         "location": location,
-        "current_observation": _text(issue.get("current_observation") or issue.get("description")),
+        "current_observation": _text(
+            _first_present(issue.get("current_observation"), issue.get("description"))
+        ),
         "spec_expectation": _text(issue.get("spec_expectation")),
         "recommendation": _text(issue.get("recommendation")),
         "confidence": _confidence(issue.get("confidence")),
