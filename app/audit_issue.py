@@ -48,7 +48,9 @@ def _text_list(value: Any) -> list[str]:
     return [_text(item) for item in _list(value) if _text(item)]
 
 
-def issue_key(issue: dict[str, Any]) -> str:
+def issue_key(issue: Any) -> str:
+    if not isinstance(issue, dict):
+        issue = {"current_observation": _text(issue)} if _text(issue) else {}
     category = _key_text(issue.get("category") or "content_hierarchy")
     subcategory = _key_text(issue.get("subcategory") or "general")
     target = _key_text(issue.get("target_element") or issue.get("location") or "unknown")

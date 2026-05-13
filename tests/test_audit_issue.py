@@ -1,4 +1,4 @@
-from app.audit_issue import normalize_issue, normalize_issues
+from app.audit_issue import issue_key, normalize_issue, normalize_issues
 
 
 def test_normalize_issue_preserves_old_issue_fields_and_adds_standard_fields():
@@ -68,3 +68,11 @@ def test_normalize_issues_applies_source_model_to_each_issue():
 
     assert [issue["source_models"] for issue in issues] == [["GPT-5.5"], ["GPT-5.5"]]
     assert [issue["category"] for issue in issues] == ["color_gradient", "spacing_layout"]
+
+
+def test_issue_key_handles_none():
+    assert issue_key(None) == "content_hierarchy.general:unknown:issue"
+
+
+def test_issue_key_handles_empty_dict():
+    assert issue_key({}) == "content_hierarchy.general:unknown:issue"
