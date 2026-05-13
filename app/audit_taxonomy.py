@@ -148,7 +148,4 @@ def normalize_subcategory(value: Any, category: Any) -> str:
         return aliases[raw_key]
     if key in aliases:
         return aliases[key]
-    for alias, subcategory in aliases.items():
-        if alias in key or key in alias:
-            return subcategory
     return key or "general"

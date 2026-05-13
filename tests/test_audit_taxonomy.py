@@ -46,6 +46,13 @@ def test_normalize_subcategory_preserves_canonical_ids():
     assert normalize_subcategory("low_contrast", "color_gradient") == "low_contrast"
 
 
+def test_normalize_subcategory_does_not_expand_short_partial_aliases():
+    assert normalize_subcategory("off", "color_gradient") == "off"
+    assert normalize_subcategory("ai", "color_gradient") == "ai"
+    assert normalize_subcategory("low", "color_gradient") == "low"
+    assert normalize_subcategory("button", "component_spec") == "button"
+
+
 def test_normalize_category_prioritizes_color_in_mixed_labels():
     assert normalize_category("颜色和品牌") == "color_gradient"
     assert normalize_category("Brand/logo/accent color inventory") == "color_gradient"
