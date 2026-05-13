@@ -76,3 +76,32 @@ def test_issue_key_handles_none():
 
 def test_issue_key_handles_empty_dict():
     assert issue_key({}) == "content_hierarchy.general:unknown:issue"
+
+
+def test_issue_key_normalizes_taxonomy_fields_for_direct_callers():
+    raw_key = issue_key(
+        {
+            "category": "色彩",
+            "subcategory": "非规范色",
+            "target_element": "按钮",
+            "violation_type": "偏色",
+        }
+    )
+    normalized_key = issue_key(
+        {
+            "category": "color_gradient",
+            "subcategory": "off_token_color",
+            "target_element": "按钮",
+            "violation_type": "偏色",
+        }
+    )
+
+    assert raw_key == normalized_key
+
+
+def test_normalize_issue_preserves_zero_observation_text():
+    assert normalize_issue(0, index=4)["current_observation"] == "0"
+
+
+def test_normalize_issue_preserves_false_observation_text():
+    assert normalize_issue(False, index=5)["current_observation"] == "False"

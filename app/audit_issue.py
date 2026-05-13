@@ -17,7 +17,9 @@ def _list(value: Any) -> list[Any]:
 
 
 def _text(value: Any) -> str:
-    return str(value or "").strip()
+    if value is None:
+        return ""
+    return str(value).strip()
 
 
 def _key_text(value: Any) -> str:
@@ -51,8 +53,10 @@ def _text_list(value: Any) -> list[str]:
 def issue_key(issue: Any) -> str:
     if not isinstance(issue, dict):
         issue = {"current_observation": _text(issue)} if _text(issue) else {}
-    category = _key_text(issue.get("category") or "content_hierarchy")
-    subcategory = _key_text(issue.get("subcategory") or "general")
+    category_value = normalize_category(issue.get("category"))
+    subcategory_value = normalize_subcategory(issue.get("subcategory"), category_value)
+    category = _key_text(category_value)
+    subcategory = _key_text(subcategory_value)
     target = _key_text(issue.get("target_element") or issue.get("location") or "unknown")
     violation = _key_text(
         issue.get("violation_type") or issue.get("current_observation") or "issue"
