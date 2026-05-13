@@ -64,9 +64,9 @@ def issue_key(issue: Any) -> str:
     subcategory_value = normalize_subcategory(issue.get("subcategory"), category_value)
     category = _key_text(category_value)
     subcategory = _key_text(subcategory_value)
-    target = _key_text(issue.get("target_element") or issue.get("location") or "unknown")
+    target = _key_text(_first_present(issue.get("target_element"), issue.get("location"), "unknown"))
     violation = _key_text(
-        issue.get("violation_type") or issue.get("current_observation") or "issue"
+        _first_present(issue.get("violation_type"), issue.get("current_observation"), "issue")
     )
     return f"{category}.{subcategory}:{target}:{violation}"
 

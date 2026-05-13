@@ -99,6 +99,11 @@ def test_issue_key_normalizes_taxonomy_fields_for_direct_callers():
     assert raw_key == normalized_key
 
 
+def test_issue_key_preserves_falsy_observation_values():
+    assert issue_key({"current_observation": 0}).endswith(":0")
+    assert issue_key({"current_observation": False}).endswith(":false")
+
+
 def test_normalize_issue_preserves_zero_observation_text():
     assert normalize_issue(0, index=4)["current_observation"] == "0"
 
