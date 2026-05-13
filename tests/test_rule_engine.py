@@ -48,6 +48,8 @@ def test_rule_review_adds_color_issue_from_off_token_sample():
     assert result["rule_warnings"][0]["location"] == "邀好友赚套餐按钮"
     assert result["rule_warnings"][0]["bbox"] == [8, 8, 24, 24]
     assert result["rule_warnings"][0]["rule_source"] == "color_sample"
+    assert result["rule_hits"][0]["rule_id"] == "color_sample"
+    assert result["rule_hits"][0]["evidence"].startswith("实测颜色 #F37021")
 
 
 def test_rule_review_enriches_existing_color_issue_instead_of_duplicating():
@@ -85,6 +87,7 @@ def test_rule_review_enriches_existing_color_issue_instead_of_duplicating():
     assert result["issues"][0]["id"] == "model-001"
     assert result["issues"][0]["bbox"] == [10, 10, 40, 20]
     assert result["issues"][0]["rule_source"] == "color_sample"
+    assert result["issues"][0]["rule_sources"] == ["color_sample"]
     assert "实测颜色 #F37021" in result["issues"][0]["current_observation"]
     assert result["overall_conclusion"] == "模型未发现问题"
 
@@ -113,6 +116,7 @@ def test_rule_review_adds_spacing_issue_from_failed_distance_measurement():
     assert result["rule_warnings"][0]["category"] == "间距"
     assert result["rule_warnings"][0]["location"] == "header-gap"
     assert result["rule_warnings"][0]["rule_source"] == "spacing_measurement"
+    assert result["rule_hits"][0]["rule_source"] == "spacing_measurement"
     assert "18.4px" in result["rule_warnings"][0]["current_observation"]
 
 

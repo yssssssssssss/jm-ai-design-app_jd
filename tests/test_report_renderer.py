@@ -370,6 +370,25 @@ def test_report_replaces_major_issues_with_audit_overview():
     assert "AI 主色" in overview_html
 
 
+def test_report_renders_quality_summary_with_rule_and_version_metadata():
+    audit = _audit_payload()
+    audit["prompt_version"] = "jm-audit-prompt-v1"
+    audit["schema_version"] = "jm-audit-schema-v1"
+    audit["rule_hits"] = [{"rule_id": "color_sample"}]
+    audit["issues"][0]["bbox_status"] = "trusted"
+
+    html = render_report_html(
+        task={"title": "审核", "summary": "完成"},
+        image_results=[{"filename": "image-001.png", "audit": audit, "artifacts": {}}],
+    )
+
+    quality_html = html.split("质量摘要", 1)[1].split("审核综述", 1)[0]
+    assert "问题数量" in quality_html
+    assert "规则命中" in quality_html
+    assert "jm-audit-prompt-v1" in quality_html
+    assert "可信 1" in quality_html
+
+
 def test_report_includes_back_link_to_history_when_task_id_is_known():
     html = render_report_html(
         task={"title": "审核", "summary": "完成"},

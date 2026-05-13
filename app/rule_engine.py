@@ -27,10 +27,13 @@ def apply_rule_review(
     _ensure_shape(reviewed)
     reviewed["issues"] = [_normalize_issue(issue, image_size) for issue in _list(reviewed.get("issues"))]
     reviewed["rule_warnings"] = _list(reviewed.get("rule_warnings"))
+    reviewed["rule_hits"] = _list(reviewed.get("rule_hits"))
 
     for issue in _color_issues_from_samples(tokens):
+        reviewed["rule_hits"].append(_rule_hit(issue))
         _upsert_rule_finding(reviewed["issues"], reviewed["rule_warnings"], issue)
     for issue in _spacing_issues_from_measurements(measurements):
+        reviewed["rule_hits"].append(_rule_hit(issue))
         _upsert_rule_finding(reviewed["issues"], reviewed["rule_warnings"], issue)
 
     return reviewed
@@ -71,6 +74,7 @@ def _color_issues_from_samples(tokens: dict[str, Any] | None) -> list[dict[str, 
                 "confidence": 0.9,
                 "bbox": bbox,
                 "rule_source": "color_sample",
+                "rule_sources": ["color_sample"],
             }
         )
     return issues
@@ -102,6 +106,7 @@ def _spacing_issues_from_measurements(measurements: dict[str, Any] | None) -> li
                 "confidence": 0.85,
                 "bbox": None,
                 "rule_source": "spacing_measurement",
+                "rule_sources": ["spacing_measurement"],
             }
         )
     return issues
@@ -126,6 +131,9 @@ def _normalize_issue(issue: Any, image_size: tuple[int, int]) -> dict[str, Any]:
     output.setdefault("spec_expectation", "")
     output.setdefault("recommendation", "")
     output.setdefault("confidence", 0.6)
+    output["rule_sources"] = _text_list(output.get("rule_sources"))
+    if output.get("rule_source"):
+        _append_unique(output["rule_sources"], str(output["rule_source"]))
     if not _trusted_bbox(output, image_size):
         if output.get("bbox") is not None:
             output["bbox_rule_status"] = "dropped_untrusted"
@@ -171,8 +179,23 @@ def _upsert_rule_finding(
     )
     for key in ["spec_expectation", "recommendation", "confidence", "rule_source"]:
         match[key] = rule_issue.get(key, match.get(key))
+    for source in _text_list(rule_issue.get("rule_sources") or rule_issue.get("rule_source")):
+        _append_unique(match.setdefault("rule_sources", []), source)
     if not match.get("bbox") and rule_issue.get("bbox"):
         match["bbox"] = rule_issue["bbox"]
+
+
+def _rule_hit(issue: dict[str, Any]) -> dict[str, Any]:
+    source = str(issue.get("rule_source") or "rule")
+    return {
+        "rule_id": source,
+        "rule_source": source,
+        "category": issue.get("category"),
+        "severity": issue.get("severity"),
+        "location": issue.get("location"),
+        "evidence": issue.get("current_observation"),
+        "bbox": issue.get("bbox"),
+    }
 
 
 def _find_matching_issue(
@@ -255,3 +278,12 @@ def _list(value: Any) -> list[Any]:
     if isinstance(value, list):
         return value
     return [value]
+
+
+def _text_list(value: Any) -> list[str]:
+    return [str(item) for item in _list(value) if str(item or "").strip()]
+
+
+def _append_unique(items: list[str], value: str) -> None:
+    if value and value not in items:
+        items.append(value)

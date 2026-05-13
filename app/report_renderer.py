@@ -296,6 +296,40 @@ def _model_comparison(comparison: dict[str, Any] | None) -> str:
     """
 
 
+def _report_quality_summary(audit: dict[str, Any]) -> str:
+    issues = [issue for issue in audit.get("issues", []) if isinstance(issue, dict)]
+    rule_hits = [item for item in audit.get("rule_hits", []) if isinstance(item, dict)]
+    failures = (audit.get("model_comparison") or {}).get("model_failures") or []
+    bbox_counts = {"trusted": 0, "suspicious": 0, "dropped": 0, "unvalidated": 0}
+    for issue in issues:
+        status = str(issue.get("bbox_status") or "unvalidated")
+        if status not in bbox_counts:
+            status = "unvalidated"
+        bbox_counts[status] += 1
+
+    rows = [
+        {"item": "问题数量", "value": len(issues)},
+        {"item": "规则命中", "value": len(rule_hits)},
+        {"item": "模型降级", "value": len(failures)},
+        {
+            "item": "bbox 状态",
+            "value": (
+                f"可信 {bbox_counts['trusted']} / 可疑 {bbox_counts['suspicious']} / "
+                f"丢弃 {bbox_counts['dropped']} / 未校验 {bbox_counts['unvalidated']}"
+            ),
+        },
+    ]
+    if audit.get("prompt_version"):
+        rows.append({"item": "Prompt 版本", "value": audit.get("prompt_version")})
+    if audit.get("schema_version"):
+        rows.append({"item": "Schema 版本", "value": audit.get("schema_version")})
+
+    return f"""
+      <h3>质量摘要</h3>
+      {_kv_table(rows, [("item", "指标"), ("value", "结果")], table_class="quality-table")}
+    """
+
+
 def _rule_warnings(items: list[dict[str, Any]]) -> str:
     if not items:
         return ""
@@ -376,6 +410,7 @@ def _image_section(index: int, result: dict[str, Any], task_id: int | None) -> s
       <h3>核心结论</h3>
       {_core_conclusion(audit)}
       {_model_comparison(audit.get("model_comparison"))}
+      {_report_quality_summary(audit)}
 
       <h3>审核综述</h3>
       {_checklist_table(audit.get("checklist", []))}
