@@ -7,6 +7,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from app.bbox_validator import DROPPED, SUSPICIOUS, validate_bbox
+
 
 ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = ROOT / "scripts"
@@ -46,17 +48,24 @@ def build_issues_json_for_image(
     issues: list[dict[str, Any]],
     image_size: tuple[int, int],
 ) -> list[dict[str, Any]]:
-    return _build_issues_json(issues, scale_x=1.0, scale_y=1.0)
+    return _build_issues_json(issues, scale_x=1.0, scale_y=1.0, image_size=image_size)
 
 
 def _build_issues_json(
     issues: list[dict[str, Any]],
     scale_x: float,
     scale_y: float | None = None,
+    image_size: tuple[int, int] | None = None,
 ) -> list[dict[str, Any]]:
     scale_y = scale_x if scale_y is None else scale_y
     output: list[dict[str, Any]] = []
     for issue in issues:
+        if issue.get("bbox_status") in {SUSPICIOUS, DROPPED}:
+            continue
+        if image_size is not None:
+            issue = validate_bbox(issue, image_size)
+            if issue.get("bbox_status") != "trusted":
+                continue
         bbox = issue.get("bbox")
         if not _valid_bbox(bbox):
             continue

@@ -45,6 +45,30 @@ def test_build_issues_json_keeps_only_issues_with_bbox():
     ]
 
 
+def test_build_issues_json_skips_untrusted_bbox_statuses():
+    issues = [
+        {"id": "trusted", "bbox": [1, 2, 3, 4], "bbox_status": "trusted"},
+        {"id": "suspicious", "bbox": [1, 2, 3, 4], "bbox_status": "suspicious"},
+        {"id": "dropped", "bbox": [1, 2, 3, 4], "bbox_status": "dropped"},
+    ]
+
+    result = build_issues_json(issues)
+
+    assert [issue["id"] for issue in result] == ["trusted"]
+
+
+def test_build_issues_json_for_image_validates_bbox_before_screenshot():
+    issues = [
+        {"id": "right-top", "location": "右上角按钮", "bbox": [820, 20, 120, 40]},
+        {"id": "wrong-side", "location": "右上角按钮", "bbox": [20, 20, 120, 40]},
+        {"id": "out-of-bounds", "location": "底部按钮", "bbox": [10, 780, 120, 40]},
+    ]
+
+    result = build_issues_json_for_image(issues, image_size=(1000, 800))
+
+    assert [issue["id"] for issue in result] == ["right-top"]
+
+
 def test_build_issues_json_for_image_keeps_half_size_model_bboxes_unscaled():
     issues = [
         {
