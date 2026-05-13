@@ -3,6 +3,7 @@ import json
 import pytest
 from PIL import Image
 
+from app.prompt_builder import PROMPT_VERSION, SCHEMA_VERSION
 from app.openai_audit import (
     AuditModelError,
     audit_image_with_chat,
@@ -546,7 +547,9 @@ def test_audit_image_calls_responses_api_with_schema_and_data_url(tmp_path):
 
     result = audit_image(client, "test-model", image_path, "SPEC")
 
-    assert result == payload
+    assert {key: result[key] for key in payload} == payload
+    assert result["prompt_version"] == PROMPT_VERSION
+    assert result["schema_version"] == SCHEMA_VERSION
     assert client.responses.kwargs["model"] == "test-model"
     content = client.responses.kwargs["input"][0]["content"]
     assert content[0]["type"] == "input_text"
@@ -656,7 +659,9 @@ def test_audit_image_with_chat_calls_chat_completions_with_image(tmp_path):
 
     result = audit_image_with_chat(client, "jd-model", image_path, "SPEC")
 
-    assert result == payload
+    assert {key: result[key] for key in payload} == payload
+    assert result["prompt_version"] == PROMPT_VERSION
+    assert result["schema_version"] == SCHEMA_VERSION
     kwargs = client.chat.completions.kwargs
     assert kwargs["model"] == "jd-model"
     assert kwargs["response_format"] == {"type": "json_object"}
@@ -781,7 +786,9 @@ def test_audit_image_with_chat_light_uses_compact_prompt_and_output_budget(tmp_p
 
     result = audit_image_with_chat_light(client, "jd-model", image_path, full_spec)
 
-    assert result == payload
+    assert {key: result[key] for key in payload} == payload
+    assert result["prompt_version"] == PROMPT_VERSION
+    assert result["schema_version"] == SCHEMA_VERSION
     kwargs = client.chat.completions.kwargs
     prompt = kwargs["messages"][0]["content"][0]["text"]
     assert kwargs["max_tokens"] == 4096
