@@ -20,6 +20,7 @@ from app.evidence_tools import (
     write_regions_json,
 )
 from app.models import TASK_FAILED, TASK_RUNNING, TASK_SUCCEEDED
+from app.model_errors import model_failure
 from app.openai_audit import audit_image, audit_image_with_chat, audit_image_with_chat_light
 from app.report_renderer import render_report_html
 from app.repositories import (
@@ -130,12 +131,18 @@ def _dual_auditor(
                 )
                 attempts.append({"model": model, "audit": result, "image_size": image_size})
             except Exception as exc:  # noqa: BLE001 - one model failure should not fail the other.
-                attempts.append({"model": model, "error": _short_error(exc)})
+                attempts.append(model_failure(model, exc))
         primary_attempt = attempts[0] if attempts else {}
         if isinstance(primary_attempt.get("audit"), dict):
             result = merge_primary_with_candidates(primary_attempt, attempts[1:])
             failures = [
-                {"model": str(attempt.get("model") or ""), "error": str(attempt.get("error") or "")}
+                {
+                    "model": str(attempt.get("model") or ""),
+                    "error": str(attempt.get("error") or ""),
+                    "error_type": str(attempt.get("error_type") or "unknown"),
+                    "retriable": bool(attempt.get("retriable")),
+                    "degraded": bool(attempt.get("degraded")),
+                }
                 for attempt in attempts[1:]
                 if attempt.get("error")
             ]

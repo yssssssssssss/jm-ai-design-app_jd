@@ -352,7 +352,13 @@ def test_run_task_dual_mode_succeeds_when_one_model_fails(monkeypatch, tmp_path)
     assert refreshed.status == "succeeded"
     assert merged_audit["issues"][0]["agreement"] == "primary_only"
     assert merged_audit["model_comparison"]["model_failures"] == [
-        {"model": "Kimi-K2.6", "error": "timeout"}
+        {
+            "model": "Kimi-K2.6",
+            "error": "timeout",
+            "error_type": "timeout",
+            "retriable": True,
+            "degraded": True,
+        }
     ]
 
 

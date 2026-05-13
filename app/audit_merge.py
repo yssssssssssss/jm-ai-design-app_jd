@@ -4,6 +4,8 @@ from copy import deepcopy
 from difflib import SequenceMatcher
 from typing import Any
 
+from app.model_errors import model_failure
+
 
 REQUIRED_TOP_LEVEL_KEYS = [
     "screen_context",
@@ -84,7 +86,7 @@ def merge_audits(model_audits: list[dict[str, Any]]) -> dict[str, Any]:
 
 def merge_audit_attempts(attempts: list[dict[str, Any]]) -> dict[str, Any]:
     audits: list[dict[str, Any]] = []
-    failures: list[dict[str, str]] = []
+    failures: list[dict[str, Any]] = []
 
     for index, attempt in enumerate(attempts):
         model = str(attempt.get("model") or _default_model(index))
@@ -99,7 +101,7 @@ def merge_audit_attempts(attempts: list[dict[str, Any]]) -> dict[str, Any]:
                 }
             )
         else:
-            failures.append({"model": model, "error": _short_error(error or "unknown error")})
+            failures.append(_failure_from_attempt(model, attempt, error or "unknown error"))
 
     if not audits:
         if failures and all(failure["error"] == "unknown error" for failure in failures):
@@ -718,7 +720,19 @@ def _sort_models(models: Any) -> list[str]:
     return sorted({str(model) for model in _list(models)}, key=_model_index)
 
 
-def _comparison(models: list[str], issues: list[dict[str, Any]], failures: list[dict[str, str]]) -> dict[str, Any]:
+def _failure_from_attempt(model: str, attempt: dict[str, Any], error: Any) -> dict[str, Any]:
+    if "error_type" in attempt or "retriable" in attempt or "degraded" in attempt:
+        return {
+            "model": model,
+            "error": _short_error(error),
+            "error_type": str(attempt.get("error_type") or "unknown"),
+            "retriable": bool(attempt.get("retriable")),
+            "degraded": bool(attempt.get("degraded", True)),
+        }
+    return model_failure(model, error)
+
+
+def _comparison(models: list[str], issues: list[dict[str, Any]], failures: list[dict[str, Any]]) -> dict[str, Any]:
     return {
         "models": _sort_models(models),
         "agreed_issues": [issue for issue in issues if issue.get("agreement") == "both"],

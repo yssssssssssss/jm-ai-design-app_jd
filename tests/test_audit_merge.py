@@ -107,7 +107,15 @@ def test_merge_audit_attempts_degrades_when_one_model_fails():
     result = merge_audit_attempts(attempts)
 
     assert result["issues"][0]["agreement"] == "gpt_only"
-    assert result["model_comparison"]["model_failures"] == [{"model": "Kimi-K2.6", "error": "timeout"}]
+    assert result["model_comparison"]["model_failures"] == [
+        {
+            "model": "Kimi-K2.6",
+            "error": "timeout",
+            "error_type": "timeout",
+            "retriable": True,
+            "degraded": True,
+        }
+    ]
     assert "单模型降级" in result["overall_conclusion"]
 
 
