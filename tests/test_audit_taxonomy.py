@@ -33,6 +33,24 @@ def test_normalize_subcategory_uses_category_specific_defaults():
     assert normalize_subcategory("", "spacing_layout") == "general"
 
 
+def test_normalize_subcategory_preserves_canonical_ids():
+    assert normalize_subcategory("off_token_color", "color_gradient") == "off_token_color"
+    assert (
+        normalize_subcategory("wrong_gradient_direction", "color_gradient")
+        == "wrong_gradient_direction"
+    )
+    assert (
+        normalize_subcategory("non_ai_primary_action", "color_gradient")
+        == "non_ai_primary_action"
+    )
+    assert normalize_subcategory("low_contrast", "color_gradient") == "low_contrast"
+
+
+def test_normalize_category_prioritizes_color_in_mixed_labels():
+    assert normalize_category("颜色和品牌") == "color_gradient"
+    assert normalize_category("Brand/logo/accent color inventory") == "color_gradient"
+
+
 def test_category_labels_cover_all_public_categories():
     for key in [
         "brand_identity",
