@@ -227,3 +227,28 @@ def test_run_annotations_draws_high_visibility_border(tmp_path):
 
     annotated = Image.open(output_dir / "annotated.png").convert("RGB")
     assert annotated.getpixel((35, 25)) == (181, 71, 8)
+
+
+def test_run_annotations_adds_focus_mask_outside_issue_bbox(tmp_path):
+    image = tmp_path / "input.png"
+    Image.new("RGB", (80, 80), color=(200, 200, 200)).save(image)
+    issues = tmp_path / "issues.json"
+    output_dir = tmp_path / "annotations"
+    write_json(
+        issues,
+        [
+            {
+                "id": "color-01",
+                "title": "颜色错误",
+                "severity": "中",
+                "category": "色彩",
+                "bbox": [20, 20, 30, 30],
+            }
+        ],
+    )
+
+    run_annotations(image, issues, output_dir)
+
+    annotated = Image.open(output_dir / "annotated.png").convert("RGB")
+    assert annotated.getpixel((35, 35)) == (200, 200, 200)
+    assert annotated.getpixel((5, 5))[0] < 200

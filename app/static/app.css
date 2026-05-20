@@ -314,6 +314,7 @@ button:disabled {
 }
 
 .composer-title span,
+.audit-spec-field legend,
 .screen-size-title,
 .upload-title {
   color: #374151;
@@ -334,6 +335,59 @@ button:disabled {
 .composer-title input:focus,
 .screen-size-grid input:focus {
   outline-color: var(--accent-2);
+}
+
+.audit-spec-field {
+  border: 0;
+  display: grid;
+  gap: 0.65rem;
+  margin: 0;
+  padding: 0;
+}
+
+.audit-spec-field legend {
+  padding: 0;
+}
+
+.audit-spec-options {
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.audit-spec-option {
+  align-items: center;
+  background: #f8fafc;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  color: #111827;
+  cursor: pointer;
+  display: flex;
+  gap: 0.65rem;
+  min-height: 48px;
+  padding: 0.8rem 0.95rem;
+}
+
+.audit-spec-option:hover {
+  background: var(--accent-hover);
+}
+
+.audit-spec-option:has(input:checked) {
+  background: var(--accent-soft);
+  border-color: var(--accent-2);
+}
+
+.audit-spec-option input {
+  accent-color: var(--accent);
+  flex: 0 0 auto;
+  height: 18px;
+  margin: 0;
+  width: 18px;
+}
+
+.audit-spec-option span {
+  font-weight: 650;
+  line-height: 1.35;
 }
 
 .screen-size-block {

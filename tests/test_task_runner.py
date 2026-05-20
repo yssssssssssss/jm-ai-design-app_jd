@@ -1,4 +1,5 @@
 import json
+from types import SimpleNamespace
 
 from PIL import Image
 
@@ -102,6 +103,161 @@ def test_run_task_generates_report_for_successful_images(tmp_path):
     assert images[0].tokens_path.endswith("tokens.json")
 
 
+def test_run_task_default_auditor_reads_selected_audit_spec(monkeypatch, tmp_path):
+    settings = Settings(
+        openai_api_key="key",
+        app_secret_key="secret",
+        register_invite_code="invite",
+        initial_admin_username="admin",
+        initial_admin_password="password123",
+        data_dir=tmp_path,
+    )
+    conn = connect(settings.db_path)
+    init_db(conn)
+    user = create_user(conn, "alice", hash_password("secret123"), "user")
+    task = create_task(conn, user.id, "B-design audit", 1, audit_spec_id="b-design")
+    dirs = ensure_task_dirs(settings, task.id)
+    image_path = dirs.originals / "image-001.png"
+    Image.new("RGB", (20, 20), color=(107, 54, 250)).save(image_path)
+    add_task_image(conn, task.id, "image-001.png", relative_to_data(settings, image_path), 0)
+
+    spec_path = tmp_path / "b-design.md"
+    spec_path.write_text("B-design selected spec text", encoding="utf-8")
+    asset_index_path = tmp_path / "b-design-assets.json"
+    asset_index_path.write_text('{"assets": []}', encoding="utf-8")
+    seen: dict[str, str] = {}
+
+    class FakeClient:
+        def __init__(self, **kwargs):
+            pass
+
+    def fake_audit_image(
+        client,
+        model,
+        image_path,
+        spec_text,
+        reasoning_effort=None,
+        declared_screen_size=None,
+        scale_context=None,
+    ):
+        seen["spec_text"] = spec_text
+        return _empty_audit()
+
+    monkeypatch.setattr(task_runner, "OpenAI", FakeClient)
+    monkeypatch.setattr(task_runner, "audit_image", fake_audit_image)
+    monkeypatch.setattr(
+        task_runner,
+        "get_audit_specs",
+        lambda spec_ids: [
+            SimpleNamespace(
+                id="b-design",
+                label="B-design Agent 组件规范",
+                spec_path=spec_path,
+                asset_index_path=asset_index_path,
+            )
+        ],
+    )
+
+    run_task(settings, task.id)
+
+    refreshed = get_task_by_id(conn, task.id)
+    assert seen["spec_text"] == "B-design selected spec text"
+    assert refreshed is not None
+    assert refreshed.status == "succeeded"
+    assert "B-design Agent 组件规范审核报告" in (tmp_path / refreshed.report_path).read_text(
+        encoding="utf-8"
+    )
+
+
+def test_run_task_default_auditor_runs_each_selected_audit_spec(monkeypatch, tmp_path):
+    settings = Settings(
+        openai_api_key="key",
+        app_secret_key="secret",
+        register_invite_code="invite",
+        initial_admin_username="admin",
+        initial_admin_password="password123",
+        data_dir=tmp_path,
+    )
+    conn = connect(settings.db_path)
+    init_db(conn)
+    user = create_user(conn, "alice", hash_password("secret123"), "user")
+    task = create_task(
+        conn,
+        user.id,
+        "Multi spec audit",
+        1,
+        audit_spec_id=["jm-ai", "b-design"],
+    )
+    dirs = ensure_task_dirs(settings, task.id)
+    image_path = dirs.originals / "image-001.png"
+    Image.new("RGB", (20, 20), color=(107, 54, 250)).save(image_path)
+    add_task_image(conn, task.id, "image-001.png", relative_to_data(settings, image_path), 0)
+
+    jm_spec_path = tmp_path / "jm-ai.md"
+    jm_spec_path.write_text("JM AI selected spec text", encoding="utf-8")
+    b_spec_path = tmp_path / "b-design.md"
+    b_spec_path.write_text("B-design selected spec text", encoding="utf-8")
+    asset_index_path = tmp_path / "assets.json"
+    asset_index_path.write_text('{"assets": []}', encoding="utf-8")
+    seen_spec_texts: list[str] = []
+
+    class FakeClient:
+        def __init__(self, **kwargs):
+            pass
+
+    def fake_audit_image(
+        client,
+        model,
+        image_path,
+        spec_text,
+        reasoning_effort=None,
+        declared_screen_size=None,
+        scale_context=None,
+    ):
+        seen_spec_texts.append(spec_text)
+        return _empty_audit()
+
+    monkeypatch.setattr(task_runner, "OpenAI", FakeClient)
+    monkeypatch.setattr(task_runner, "audit_image", fake_audit_image)
+    monkeypatch.setattr(
+        task_runner,
+        "get_audit_specs",
+        lambda spec_ids: [
+            SimpleNamespace(
+                id="jm-ai",
+                label="JM AI 设计规范",
+                spec_path=jm_spec_path,
+                asset_index_path=asset_index_path,
+            ),
+            SimpleNamespace(
+                id="b-design",
+                label="B-design Agent 组件规范",
+                spec_path=b_spec_path,
+                asset_index_path=asset_index_path,
+            ),
+        ],
+    )
+
+    run_task(settings, task.id)
+
+    refreshed = get_task_by_id(conn, task.id)
+    assert refreshed is not None
+    images = list_task_images(conn, task.id)
+    report_html = (tmp_path / refreshed.report_path).read_text(encoding="utf-8")
+    assert seen_spec_texts == [
+        "JM AI selected spec text",
+        "B-design selected spec text",
+    ]
+    assert refreshed.status == "succeeded"
+    assert images[0].status == "succeeded"
+    assert images[0].audit_json_path.endswith("artifacts/image-001/jm-ai/audit.json")
+    assert (dirs.artifacts / "image-001" / "jm-ai" / "audit.json").exists()
+    assert (dirs.artifacts / "image-001" / "b-design" / "audit.json").exists()
+    assert "JM AI 设计规范、B-design Agent 组件规范审核报告" in report_html
+    assert "审核规范：JM AI 设计规范" in report_html
+    assert "审核规范：B-design Agent 组件规范" in report_html
+
+
 def test_run_task_dual_mode_writes_model_artifacts_and_merged_audit(monkeypatch, tmp_path):
     settings = Settings(
         openai_api_key="key",
@@ -161,6 +317,77 @@ def test_run_task_dual_mode_writes_model_artifacts_and_merged_audit(monkeypatch,
     assert merged_audit["issues"][0]["agreement"] == "promoted_candidate"
     assert merged_audit["model_comparison"]["models"] == ["GPT-5.5", "Kimi-K2.6"]
     assert seen_models == ["GPT-5.5", "Kimi-K2.6"]
+
+
+def test_run_task_dual_light_mode_uses_kimi_specific_auditor(monkeypatch, tmp_path):
+    settings = Settings(
+        openai_api_key="key",
+        app_secret_key="secret",
+        register_invite_code="invite",
+        initial_admin_username="admin",
+        initial_admin_password="password123",
+        data_dir=tmp_path,
+        audit_model_provider="jdcloud",
+        audit_mode="dual",
+        jdcloud_openai_api_key="jd-key",
+        jdcloud_openai_base_url="https://modelservice.jdcloud.com/v1/",
+        jdcloud_openai_audit_model="GPT-5.5",
+        jdcloud_openai_audit_models=["GPT-5.5", "Kimi-K2.6"],
+        jdcloud_openai_audit_prompt_mode="light",
+    )
+    conn = connect(settings.db_path)
+    init_db(conn)
+    user = create_user(conn, "alice", hash_password("secret123"), "user")
+    task = create_task(conn, user.id, "Audit", 1)
+    dirs = ensure_task_dirs(settings, task.id)
+    image_path = dirs.originals / "image-001.png"
+    Image.new("RGB", (20, 20), color=(107, 54, 250)).save(image_path)
+    add_task_image(conn, task.id, "image-001.png", relative_to_data(settings, image_path), 0)
+
+    seen = []
+
+    class FakeClient:
+        def __init__(self, **kwargs):
+            pass
+
+    def fake_gpt_light(
+        client,
+        model,
+        image_path,
+        spec_text,
+        reasoning_effort=None,
+        declared_screen_size=None,
+        scale_context=None,
+    ):
+        seen.append(("gpt-light", model))
+        return _issue_audit(model)
+
+    def fake_kimi_light(
+        client,
+        model,
+        image_path,
+        spec_text,
+        reasoning_effort=None,
+        declared_screen_size=None,
+        scale_context=None,
+    ):
+        seen.append(("kimi-light", model))
+        return _issue_audit(model)
+
+    def fake_full(*args, **kwargs):
+        raise AssertionError("full auditor should not run in light mode")
+
+    monkeypatch.setattr(task_runner, "OpenAI", FakeClient)
+    monkeypatch.setattr(task_runner, "audit_image_with_chat", fake_full)
+    monkeypatch.setattr(task_runner, "audit_image_with_chat_light", fake_gpt_light)
+    monkeypatch.setattr(task_runner, "audit_image_with_kimi_light", fake_kimi_light)
+    spec_path = tmp_path / "spec.md"
+    spec_path.write_text("spec", encoding="utf-8")
+    monkeypatch.setattr(task_runner, "SPEC_PATH", spec_path)
+
+    run_task(settings, task.id)
+
+    assert seen == [("gpt-light", "GPT-5.5"), ("kimi-light", "Kimi-K2.6")]
 
 
 def test_run_task_dual_mode_merges_scaled_model_bboxes_before_screenshots(monkeypatch, tmp_path):
@@ -360,6 +587,7 @@ def test_run_task_dual_mode_succeeds_when_one_model_fails(monkeypatch, tmp_path)
             "degraded": True,
         }
     ]
+    assert (artifact_dir / "audit-02-kimi-k2.6-failure.json").exists()
 
 
 def test_run_task_dual_mode_passes_same_scale_context_to_both_models(monkeypatch, tmp_path):

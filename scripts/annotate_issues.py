@@ -16,9 +16,10 @@ COLORS = {
     "中": (181, 71, 8),
     "低": (107, 114, 128),
 }
-MIN_BORDER_WIDTH = 6
-MAX_BORDER_WIDTH = 12
-BORDER_WIDTH_SCALE = 240
+MIN_BORDER_WIDTH = 8
+MAX_BORDER_WIDTH = 18
+BORDER_WIDTH_SCALE = 160
+MASK_ALPHA = 96
 
 
 def load_issues(path: Path) -> list[dict[str, Any]]:
@@ -52,6 +53,27 @@ def annotation_border_width(width: int, height: int) -> int:
     return max(MIN_BORDER_WIDTH, min(MAX_BORDER_WIDTH, scaled))
 
 
+def apply_focus_mask(
+    image: Image.Image,
+    issues: list[dict[str, Any]],
+    width: int,
+    height: int,
+) -> Image.Image:
+    if not issues:
+        return image
+    annotated = image.convert("RGBA")
+    mask = Image.new("RGBA", (width, height), color=(0, 0, 0, MASK_ALPHA))
+    mask_draw = ImageDraw.Draw(mask)
+    for issue in issues:
+        x, y, w, h = [int(round(v)) for v in issue["bbox"]]
+        x = max(0, min(x, width - 1))
+        y = max(0, min(y, height - 1))
+        w = max(1, min(w, width - x))
+        h = max(1, min(h, height - y))
+        mask_draw.rectangle((x, y, x + w, y + h), fill=(0, 0, 0, 0))
+    return Image.alpha_composite(annotated, mask).convert("RGB")
+
+
 def draw_label(draw: ImageDraw.ImageDraw, xy: tuple[int, int], text: str, color: tuple[int, int, int]) -> None:
     font = ImageFont.load_default()
     left, top = xy
@@ -78,10 +100,9 @@ def main() -> int:
 
     image = Image.open(image_path).convert("RGB")
     issues = load_issues(issues_path)
-    annotated = image.copy()
-    draw = ImageDraw.Draw(annotated)
-
     width, height = image.size
+    annotated = apply_focus_mask(image, issues, width, height)
+    draw = ImageDraw.Draw(annotated)
     border_width = annotation_border_width(width, height)
 
     for index, issue in enumerate(issues, start=1):

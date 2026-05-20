@@ -15,6 +15,7 @@ from app.models import (
     TaskImage,
     User,
 )
+from app.spec_registry import DEFAULT_SPEC_ID, serialize_audit_spec_ids, validate_audit_spec_ids
 from app.time_utils import beijing_now_text
 
 
@@ -37,6 +38,9 @@ def _task(row: sqlite3.Row) -> Task:
         title=row["title"],
         status=row["status"],
         image_count=row["image_count"],
+        audit_spec_id=row["audit_spec_id"]
+        if "audit_spec_id" in row.keys()
+        else DEFAULT_SPEC_ID,
         screen_width_px=row["screen_width_px"],
         screen_height_px=row["screen_height_px"],
         summary=row["summary"],
@@ -124,10 +128,12 @@ def create_task(
     owner_id: int,
     title: str,
     image_count: int,
+    audit_spec_id: str | list[str] = DEFAULT_SPEC_ID,
     screen_width_px: int | None = None,
     screen_height_px: int | None = None,
 ) -> Task:
     now = beijing_now_text()
+    stored_audit_spec_id = serialize_audit_spec_ids(validate_audit_spec_ids(audit_spec_id))
     cur = conn.execute(
         """
         insert into tasks (
@@ -135,18 +141,20 @@ def create_task(
             title,
             status,
             image_count,
+            audit_spec_id,
             screen_width_px,
             screen_height_px,
             created_at,
             updated_at
         )
-        values (?, ?, ?, ?, ?, ?, ?, ?)
+        values (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             owner_id,
             title,
             TASK_QUEUED,
             image_count,
+            stored_audit_spec_id,
             screen_width_px,
             screen_height_px,
             now,

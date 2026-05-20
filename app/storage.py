@@ -20,6 +20,7 @@ class TaskDirs:
     originals: Path
     artifacts: Path
     report: Path
+    pdf_report: Path
 
 
 def _extension(filename: str) -> str:
@@ -85,6 +86,7 @@ def ensure_task_dirs(settings: Settings, task_id: int) -> TaskDirs:
         originals=originals,
         artifacts=artifacts,
         report=root / "report.html",
+        pdf_report=root / "report.pdf",
     )
 
 

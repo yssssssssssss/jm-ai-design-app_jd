@@ -3,15 +3,66 @@ from __future__ import annotations
 import json
 from html import escape
 from pathlib import Path
+import re
 from typing import Any
 
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 SPEC_ASSET_INDEX = ROOT_DIR / "references" / "spec-assets.json"
+COMMON_ENGLISH_REPLACEMENTS = [
+    ("JM AI color token", "规范色彩令牌"),
+    ("color token", "色彩令牌"),
+    ("JM AI tag/button", "规范标签/按钮"),
+    ("tag/button", "标签/按钮"),
+    ("JM AI", "规范"),
+    ("CTA", "主操作"),
+    ("token", "令牌"),
+    ("off-token", "未使用规范令牌"),
+    ("padding", "内边距"),
+    ("spacing", "间距"),
+    ("gap", "间距"),
+    ("button", "按钮"),
+    ("tag", "标签"),
+    ("header", "顶部区域"),
+    ("icon", "图标"),
+    ("font", "字体"),
+    ("text", "文本"),
+    ("primary", "主"),
+    ("normal", "常规"),
+]
+B_DESIGN_INTERNAL_REPLACEMENTS = [
+    ("pdf_visual_example", "视觉示意规则"),
+    ("alpha_case", "扩展案例"),
+    ("pdf_text", "明文规则"),
+]
 
 
 def _text(value: Any) -> str:
     return escape("" if value is None else str(value), quote=True)
+
+
+def _display_recommendation(value: Any) -> str:
+    text = str(value or "").strip()
+    protected_tokens = re.findall(r"\b(?:ai|assist)/[a-zA-Z0-9-]+\b", text, flags=re.IGNORECASE)
+    placeholders: dict[str, str] = {}
+    for index, token in enumerate(protected_tokens):
+        placeholder = f"__{index}__"
+        placeholders[placeholder] = token
+        text = text.replace(token, placeholder, 1)
+    for source, target in COMMON_ENGLISH_REPLACEMENTS:
+        text = re.sub(re.escape(source), target, text, flags=re.IGNORECASE)
+    text = re.sub(r"\b[a-zA-Z]{2,}\b", "", text)
+    for placeholder, token in placeholders.items():
+        text = text.replace(placeholder, token)
+    text = re.sub(r"\s{2,}", " ", text).strip()
+    return text or "请按设计规范调整。"
+
+
+def _display_b_design_text(value: Any) -> str:
+    text = str(value or "")
+    for source, target in B_DESIGN_INTERNAL_REPLACEMENTS:
+        text = text.replace(source, target)
+    return text
 
 
 def _list(items: list[Any], empty: str = "无") -> str:
@@ -35,8 +86,11 @@ def _category_slug(category: Any) -> str:
     return "issue"
 
 
-def _specific_spec_reference(issue: dict[str, Any]) -> tuple[str, str] | None:
-    index = _spec_asset_index()
+def _specific_spec_reference(
+    issue: dict[str, Any],
+    spec_asset_index_path: Path | None = None,
+) -> tuple[str, str] | None:
+    index = _spec_asset_index(spec_asset_index_path)
     if not index:
         return None
     text = _normalized_asset_text(issue)
@@ -52,9 +106,10 @@ def _specific_spec_reference(issue: dict[str, Any]) -> tuple[str, str] | None:
     return str(best.get("url") or ""), str(best.get("label") or "规范参考")
 
 
-def _spec_asset_index() -> list[dict[str, Any]]:
+def _spec_asset_index(spec_asset_index_path: Path | None = None) -> list[dict[str, Any]]:
+    path = spec_asset_index_path or SPEC_ASSET_INDEX
     try:
-        data = json.loads(SPEC_ASSET_INDEX.read_text(encoding="utf-8"))
+        data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return []
     assets = data.get("assets") if isinstance(data, dict) else None
@@ -74,8 +129,11 @@ def _normalized_keyword(value: Any) -> str:
     return str(value or "").lower().replace(" ", "")
 
 
-def _spec_reference(issue: dict[str, Any]) -> tuple[str, str]:
-    specific = _specific_spec_reference(issue)
+def _spec_reference(
+    issue: dict[str, Any],
+    spec_asset_index_path: Path | None = None,
+) -> tuple[str, str]:
+    specific = _specific_spec_reference(issue, spec_asset_index_path)
     if specific:
         return specific
 
@@ -109,19 +167,54 @@ def _spec_reference(issue: dict[str, Any]) -> tuple[str, str]:
         return "/spec-assets/buttons.png", "按钮规范参考"
     if any(token in text for token in ["顶部", "header", "导航"]):
         return "/spec-assets/header.png", "顶部区域规范参考"
-    return "/spec-assets/color.png", "JM AI 规范参考"
+    return "/spec-assets/color.png", "规范参考"
 
 
-def _spec_reference_cell(issue: dict[str, Any], modal_id: str) -> str:
-    url, alt = _spec_reference(issue)
+def _spec_reference_cell(
+    issue: dict[str, Any],
+    modal_id: str,
+    spec_asset_index_path: Path | None = None,
+) -> str:
+    url, alt = _spec_reference(issue, spec_asset_index_path)
+    return _image_modal_trigger(
+        url=url,
+        alt=alt,
+        modal_id=modal_id,
+        figure_class="spec-reference",
+        trigger_class="spec-reference-trigger",
+        caption="",
+    )
+
+
+def _image_modal_trigger(
+    *,
+    url: str,
+    alt: str,
+    modal_id: str,
+    figure_class: str,
+    trigger_class: str,
+    caption: str,
+    caption_first: bool = False,
+) -> str:
     open_id = f"{modal_id}-open"
-    return (
-        '<figure class="spec-reference">'
-        f'<label class="spec-reference-trigger" for="{_text(open_id)}" '
+    caption_text = str(caption or "").strip()
+    figcaption = f"<figcaption>{_text(caption_text)}</figcaption>" if caption_text else ""
+    modal_caption = (
+        f'<p class="image-modal-caption">{_text(caption_text)}</p>'
+        if caption_text
+        else ""
+    )
+    trigger = (
+        f'<label class="{_text(trigger_class)}" for="{_text(open_id)}" '
         f'aria-label="放大查看 {_text(alt)}">'
         f'<img src="{_text(url)}" alt="{_text(alt)}">'
         "</label>"
-        f"<figcaption>{_text(alt)}</figcaption>"
+    )
+    return (
+        f'<figure class="{_text(figure_class)}">'
+        f"{figcaption if caption_first else ''}"
+        f"{trigger}"
+        f"{'' if caption_first else figcaption}"
         "</figure>"
         f'<input type="checkbox" class="image-modal-toggle" id="{_text(open_id)}">'
         f'<div class="image-modal" role="dialog" '
@@ -132,7 +225,7 @@ def _spec_reference_cell(issue: dict[str, Any], modal_id: str) -> str:
         f'<img class="image-modal-img" src="{_text(url)}" alt="{_text(alt)}" '
         'data-zoomable-image draggable="false">'
         '<p class="image-modal-hint">悬停后使用滚轮或触控板缩放，拖动图片查看不同位置</p>'
-        f'<p class="image-modal-caption">{_text(alt)}</p>'
+        f"{modal_caption}"
         "</div>"
         "</div>"
     )
@@ -145,20 +238,85 @@ def _issue_number(issue: dict[str, Any], fallback_index: int) -> str:
     return f"{_category_slug(issue.get('category'))}-{fallback_index:02d}"
 
 
-def _issues_table(issues: list[dict[str, Any]], modal_prefix: str = "issue") -> str:
+def _crop_key_from_path(path: str) -> str:
+    stem = Path(path).stem
+    return stem.removeprefix("issue-")
+
+
+def _issue_screenshot_context(
+    issues: list[dict[str, Any]],
+    artifacts: dict[str, Any],
+    task_id: int | None,
+) -> dict[int, dict[str, str]]:
+    crops = [
+        crop
+        for crop in artifacts.get("issue_crops") or []
+        if _artifact_url(crop, task_id)
+    ]
+    by_key = {_crop_key_from_path(str(crop)): str(crop) for crop in crops}
+    used: set[str] = set()
+    context: dict[int, dict[str, str]] = {}
+
+    for index, issue in enumerate(issues, start=1):
+        number = _issue_number(issue, index)
+        crop = by_key.get(number)
+        if crop is None and index <= len(crops):
+            fallback = str(crops[index - 1])
+            if fallback not in used:
+                crop = fallback
+        if crop is None:
+            continue
+        used.add(crop)
+        url = _artifact_url(crop, task_id)
+        if not url:
+            continue
+        recommendation = _display_recommendation(issue.get("recommendation"))
+        context[index] = {
+            "url": url,
+            "number": number,
+            "recommendation": recommendation,
+            "caption": f"{number}：{recommendation}",
+        }
+    return context
+
+
+def _issue_screenshot_cell(
+    screenshot: dict[str, str] | None,
+    modal_id: str,
+    fallback_location: Any,
+) -> str:
+    if not screenshot:
+        return f'<span class="meta">{_text(fallback_location or "无截图")}</span>'
+    return _image_modal_trigger(
+        url=screenshot["url"],
+        alt=screenshot["caption"],
+        modal_id=modal_id,
+        figure_class="issue-crop-reference",
+        trigger_class="issue-crop-trigger",
+        caption=screenshot["number"],
+    )
+
+
+def _issues_table(
+    issues: list[dict[str, Any]],
+    screenshots: dict[int, dict[str, str]],
+    modal_prefix: str = "issue",
+    spec_asset_index_path: Path | None = None,
+) -> str:
     if not issues:
         return '<p class="meta">未发现明确问题。</p>'
     rows = []
     for index, issue in enumerate(issues, start=1):
         modal_id = f"{modal_prefix}-reference-{index}"
+        screenshot_modal_id = f"{modal_prefix}-screenshot-{index}"
         rows.append(
             "<tr>"
             f"<td>{_text(_issue_number(issue, index))}</td>"
             f"<td>{_text(issue.get('category'))}</td>"
-            f"<td>{_text(issue.get('location'))}</td>"
+            f"<td>{_issue_screenshot_cell(screenshots.get(index), screenshot_modal_id, issue.get('location'))}</td>"
             f"<td>{_text(issue.get('current_observation'))}</td>"
-            f"<td>{_text(issue.get('recommendation'))}</td>"
-            f"<td>{_spec_reference_cell(issue, modal_id)}</td>"
+            f"<td>{_text(_display_recommendation(issue.get('recommendation')))}</td>"
+            f"<td>{_spec_reference_cell(issue, modal_id, spec_asset_index_path)}</td>"
             "</tr>"
         )
     return (
@@ -250,21 +408,74 @@ def _core_conclusion(audit: dict[str, Any]) -> str:
     """
 
 
-def _comparison_issue_list(items: list[dict[str, Any]]) -> str:
+def _comparison_issue_list(items: list[dict[str, Any]], prefix: str | None = None) -> str:
     if not items:
         return '<p class="meta">无</p>'
 
     rows = []
-    for item in items:
-        label = item.get("id") or item.get("location") or "问题"
-        detail = (
+    for index, item in enumerate(items, start=1):
+        label = f"ISSUE-{prefix}-{index:02d}" if prefix else item.get("id") or item.get("location") or "问题"
+        location = str(item.get("location") or "").strip()
+        detail = str(
             item.get("current_observation")
             or item.get("summary")
             or item.get("recommendation")
             or ""
-        )
+        ).strip()
+        if location and location not in detail:
+            detail = f"{location}：{detail}" if detail else location
         rows.append(f"<li><strong>{_text(label)}</strong>：{_text(detail)}</li>")
     return "<ul>" + "".join(rows) + "</ul>"
+
+
+def _comparison_issue_section(
+    title: str,
+    items: list[dict[str, Any]],
+    prefix: str | None = None,
+    show_empty: bool = False,
+) -> str:
+    if not items and not show_empty:
+        return ""
+    return f"""
+      <h4>{_text(title)}</h4>
+      {_comparison_issue_list(items, prefix)}
+    """
+
+
+def _comparison_model_issues(
+    comparison: dict[str, Any],
+    model_name: str,
+    explicit_keys: list[str],
+) -> list[dict[str, Any]]:
+    items: list[dict[str, Any]] = []
+    for key in explicit_keys:
+        items.extend(comparison.get(key) or [])
+    for item in comparison.get("review_candidates") or []:
+        if item.get("source_model") == model_name:
+            items.append(item)
+    return _unique_comparison_issues(items)
+
+
+def _comparison_shared_issues(comparison: dict[str, Any]) -> list[dict[str, Any]]:
+    return _unique_comparison_issues(
+        (comparison.get("agreed_issues") or []) + (comparison.get("promoted_issues") or [])
+    )
+
+
+def _unique_comparison_issues(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    unique: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, str]] = set()
+    for item in items:
+        key = (
+            str(item.get("id") or ""),
+            str(item.get("location") or ""),
+            str(item.get("current_observation") or item.get("summary") or ""),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(item)
+    return unique
 
 
 def _model_comparison(comparison: dict[str, Any] | None) -> str:
@@ -273,26 +484,39 @@ def _model_comparison(comparison: dict[str, Any] | None) -> str:
 
     models = comparison.get("models") or []
     model_names = "、".join(str(model) for model in models) if models else "无"
+    model_a_name = str(models[0]) if len(models) >= 1 else "模型 A"
+    model_b_name = str(models[1]) if len(models) >= 2 else "模型 B"
+    shared_issues = _comparison_shared_issues(comparison)
+    model_a_issues = _comparison_model_issues(
+        comparison,
+        model_a_name,
+        ["gpt_only_issues", "primary_only_issues"],
+    )
+    model_b_issues = _unique_comparison_issues(comparison.get("kimi_only_issues") or [])
+    explicit_model_a_count = len(comparison.get("gpt_only_issues") or []) + len(
+        comparison.get("primary_only_issues") or []
+    )
+    explicit_model_b_count = len(comparison.get("kimi_only_issues") or [])
     agreed_count = len(comparison.get("agreed_issues") or []) + len(
         comparison.get("promoted_issues") or []
     )
-    model_a_count = len(comparison.get("gpt_only_issues") or []) + len(
-        comparison.get("primary_only_issues") or []
-    )
-    model_b_count = len(comparison.get("kimi_only_issues") or [])
-    supplemental_count = model_a_count + model_b_count
-    total_count = agreed_count + model_a_count + model_b_count
+    supplemental_count = explicit_model_a_count + explicit_model_b_count
+    total_count = agreed_count + explicit_model_a_count + explicit_model_b_count
     review_items = (comparison.get("conflicts") or []) + (
         comparison.get("review_candidates") or []
     )
+    model_b_weight_items = _unique_comparison_issues(model_b_issues + review_items)
 
     return f"""
-      <h3>模型对比</h3>
+      <details class="model-moe report-details">
+      <summary>模型Moe</summary>
       <p class="meta">参与模型：{_text(model_names)}</p>
       <p class="meta">合并后问题总数：{_text(total_count)}；双方一致：{_text(agreed_count)}；单模型补充：{_text(supplemental_count)}。详细问题以合并后的完整问题清单为准。</p>
 
-      <h4>需人工复核</h4>
-      {_comparison_issue_list(review_items)}
+      {_comparison_issue_section("双权重", shared_issues, show_empty=True)}
+      {_comparison_issue_section("G 权重", model_a_issues, "G")}
+      {_comparison_issue_section("K 权重", model_b_weight_items, "K")}
+      </details>
     """
 
 
@@ -325,8 +549,19 @@ def _report_quality_summary(audit: dict[str, Any]) -> str:
         rows.append({"item": "Schema 版本", "value": audit.get("schema_version")})
 
     return f"""
-      <h3>质量摘要</h3>
+      <details class="pending-confirmation report-details">
+        <summary><span class="section-title">质量摘要</span></summary>
       {_kv_table(rows, [("item", "指标"), ("value", "结果")], table_class="quality-table")}
+      </details>
+    """
+
+
+def _audit_overview_details(audit: dict[str, Any]) -> str:
+    return f"""
+      <details class="pending-confirmation report-details">
+        <summary><span class="section-title">审核综述</span></summary>
+        {_checklist_table(audit.get("checklist", []))}
+      </details>
     """
 
 
@@ -361,27 +596,35 @@ def _cannot_verify_details(items: list[dict[str, Any]]) -> str:
 def _screenshots(
     artifacts: dict[str, Any],
     task_id: int | None,
+    modal_prefix: str,
+    issue_screenshots: dict[int, dict[str, str]],
 ) -> str:
     figures: list[str] = []
     annotated = _artifact_url(artifacts.get("annotated"), task_id)
     if annotated:
         figures.append(
-            '<figure class="screenshot-card wide">'
-            "<figcaption>全图标注</figcaption>"
-            f'<img src="{_text(annotated)}" alt="全图标注">'
-            "</figure>"
+            _image_modal_trigger(
+                url=annotated,
+                alt="全图标注",
+                modal_id=f"{modal_prefix}-annotated",
+                figure_class="screenshot-card wide",
+                trigger_class="screenshot-trigger",
+                caption="全图标注",
+                caption_first=True,
+            )
         )
 
-    for crop in artifacts.get("issue_crops") or []:
-        url = _artifact_url(crop, task_id)
-        if not url:
-            continue
-        caption = "修改建议"
+    for index, screenshot in issue_screenshots.items():
         figures.append(
-            '<figure class="screenshot-card">'
-            f"<figcaption>{_text(caption)}</figcaption>"
-            f'<img src="{_text(url)}" alt="{_text(caption)}">'
-            "</figure>"
+            _image_modal_trigger(
+                url=screenshot["url"],
+                alt=screenshot["caption"],
+                modal_id=f"{modal_prefix}-crop-{index}",
+                figure_class="screenshot-card",
+                trigger_class="screenshot-trigger",
+                caption=screenshot["caption"],
+                caption_first=True,
+            )
         )
 
     if not figures:
@@ -389,9 +632,30 @@ def _screenshots(
     return "".join(figures)
 
 
-def _image_section(index: int, result: dict[str, Any], task_id: int | None) -> str:
+def _image_section(
+    index: int,
+    result: dict[str, Any],
+    task_id: int | None,
+    spec_asset_index_path: Path | None = None,
+) -> str:
     audit = result.get("audit", {})
     artifacts = result.get("artifacts", {})
+    result_spec_asset_index_path = (
+        result.get("spec_asset_index_path") or spec_asset_index_path
+    )
+    if result_spec_asset_index_path is not None and not isinstance(
+        result_spec_asset_index_path,
+        Path,
+    ):
+        result_spec_asset_index_path = Path(str(result_spec_asset_index_path))
+    audit_spec_label = str(result.get("audit_spec_label") or "").strip()
+    audit_spec_meta = (
+        f'<p class="meta">审核规范：{_text(audit_spec_label)}</p>'
+        if audit_spec_label
+        else ""
+    )
+    issues = [issue for issue in audit.get("issues", []) if isinstance(issue, dict)]
+    issue_screenshots = _issue_screenshot_context(issues, artifacts, task_id)
     evidence_links = [
         _artifact_link("颜色证据", artifacts.get("tokens"), task_id),
         _artifact_link("测量证据", artifacts.get("measurements"), task_id),
@@ -405,27 +669,32 @@ def _image_section(index: int, result: dict[str, Any], task_id: int | None) -> s
     return f"""
     <section class="card">
       <h2>{index}. {_text(result.get("filename"))}</h2>
+      {audit_spec_meta}
       <p class="meta">页面识别：{_text(audit.get("screen_context"))}</p>
+      {_b_design_applicability(audit)}
 
       <h3>核心结论</h3>
       {_core_conclusion(audit)}
       {_model_comparison(audit.get("model_comparison"))}
-      {_report_quality_summary(audit)}
-
-      <h3>审核综述</h3>
-      {_checklist_table(audit.get("checklist", []))}
 
       <h3>问题截图</h3>
-      <div class="screenshots">{_screenshots(artifacts, task_id)}</div>
+      <div class="screenshots">{_screenshots(artifacts, task_id, modal_prefix=f"image-{index}-screenshot", issue_screenshots=issue_screenshots)}</div>
 
       <h3>详细问题清单</h3>
-      {_issues_table(audit.get("issues", []), modal_prefix=f"image-{index}")}
+      {_issues_table(
+        issues,
+        issue_screenshots,
+        modal_prefix=f"image-{index}",
+        spec_asset_index_path=result_spec_asset_index_path,
+      )}
       {_rule_warnings(audit.get("rule_warnings", []))}
 
       <h3>符合规范的点</h3>
       {_list(audit.get("passes", []))}
 
       {_cannot_verify_details(audit.get("cannot_verify", []))}
+      {_report_quality_summary(audit)}
+      {_audit_overview_details(audit)}
 
       <h3>测量证据</h3>
       <p>{evidence_html}</p>
@@ -433,10 +702,50 @@ def _image_section(index: int, result: dict[str, Any], task_id: int | None) -> s
     """
 
 
+def _b_design_applicability(audit: dict[str, Any]) -> str:
+    applicability = audit.get("b_design_applicability")
+    if not isinstance(applicability, dict):
+        return ""
+    label_map = {"strong": "强适用", "weak": "弱适用", "none": "未命中"}
+    status = label_map.get(str(applicability.get("applicability") or ""), "未确认")
+    matches = [
+        match for match in applicability.get("matched_components", [])
+        if isinstance(match, dict)
+    ]
+    if matches:
+        match_items = "".join(
+            "<li>"
+            f"{_text(match.get('component_name') or match.get('component_id'))}"
+            f"（置信度：{_text(match.get('confidence'))}）"
+            f"：{_text(_display_b_design_text(match.get('evidence')))}"
+            "</li>"
+            for match in matches
+        )
+    else:
+        match_items = "<li>未识别到 B-design 覆盖组件或扩展规则场景</li>"
+    sections = audit.get("loaded_spec_sections") or []
+    section_text = "、".join(str(section) for section in sections) if sections else "未加载详细章节"
+    reason = str(applicability.get("reason") or "").strip()
+    reason_html = f"<p>{_text(_display_b_design_text(reason))}</p>" if reason else ""
+    return f"""
+      <details class="audit-routing" open>
+        <summary>适用性判断：{_text(status)}</summary>
+        {reason_html}
+        <p class="meta">已加载规范章节：{_text(section_text)}</p>
+        <ul>{match_items}</ul>
+      </details>
+    """
+
+
 def _back_link(task_id: int | None) -> str:
     if task_id is None:
         return ""
-    return '<a class="back-link" href="/tasks">返回</a>'
+    return (
+        '<div class="report-actions">'
+        '<a class="report-action-link" href="/tasks">返回</a>'
+        f'<a class="report-action-link" href="/tasks/{task_id}/report.pdf">下载 PDF</a>'
+        "</div>"
+    )
 
 
 def _declared_screen_size(task: dict[str, Any]) -> str:
@@ -524,9 +833,11 @@ def render_report_html(
     task: dict[str, Any],
     image_results: list[dict[str, Any]],
     task_id: int | None = None,
+    spec_asset_index_path: Path | None = None,
 ) -> str:
+    audit_spec_label = str(task.get("audit_spec_label") or "JM AI 设计规范")
     sections = "".join(
-        _image_section(index, result, task_id)
+        _image_section(index, result, task_id, spec_asset_index_path)
         for index, result in enumerate(image_results, start=1)
     )
     if not sections:
@@ -537,7 +848,7 @@ def render_report_html(
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>JM AI 设计规范审核报告</title>
+  <title>{_text(audit_spec_label)}审核报告</title>
   <style>
     :root {{
       color-scheme: light;
@@ -571,7 +882,8 @@ def render_report_html(
     .core-conclusion strong {{ color: var(--ai); display: inline-block; font-size: 16px; margin-bottom: 6px; }}
     .meta {{ color: var(--muted); }}
     .report-header {{ display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }}
-    .back-link {{ flex: 0 0 auto; display: inline-flex; align-items: center; min-height: 32px; padding: 0 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); text-decoration: none; font-weight: 600; }}
+    .report-actions {{ flex: 0 0 auto; display: flex; align-items: center; gap: 8px; }}
+    .report-action-link {{ display: inline-flex; align-items: center; min-height: 32px; padding: 0 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); text-decoration: none; font-weight: 600; }}
     .badge {{ display: inline-flex; align-items: center; min-height: 22px; padding: 0 8px; border-radius: 6px; background: var(--ai-soft); color: var(--ai); font-weight: 600; }}
     .pending-confirmation {{ margin-top: 24px; }}
     .pending-confirmation summary {{ cursor: pointer; font-size: 16px; line-height: 24px; font-weight: 600; }}
@@ -588,6 +900,11 @@ def render_report_html(
     .spec-reference-trigger img {{ display: block; width: 100%; max-height: 150px; object-fit: contain; border: 1px solid var(--line); border-radius: 6px; background: #fbfbfc; }}
     .spec-reference-trigger:focus-visible {{ outline: 2px solid var(--ai); outline-offset: 3px; border-radius: 6px; }}
     .spec-reference figcaption {{ min-height: 0; padding: 6px 0 0; color: var(--muted); font-size: 12px; line-height: 18px; font-weight: 500; }}
+    .issue-crop-reference {{ margin: 0; }}
+    .issue-crop-trigger {{ display: block; width: 100%; cursor: zoom-in; }}
+    .issue-crop-trigger img {{ display: block; width: 100%; max-height: 120px; object-fit: contain; border: 1px solid var(--line); border-radius: 6px; background: #fbfbfc; }}
+    .issue-crop-trigger:focus-visible {{ outline: 2px solid var(--ai); outline-offset: 3px; border-radius: 6px; }}
+    .issue-crop-reference figcaption {{ min-height: 0; padding: 6px 0 0; color: var(--muted); font-size: 12px; line-height: 18px; font-weight: 500; }}
     .image-modal-toggle {{ position: fixed; width: 1px; height: 1px; opacity: 0; pointer-events: none; }}
     .image-modal {{ display: none; position: fixed; inset: 0; z-index: 1000; align-items: center; justify-content: center; padding: 24px; }}
     .image-modal-toggle:checked + .image-modal {{ display: flex; }}
@@ -607,8 +924,11 @@ def render_report_html(
     .screenshot-card {{ margin: 0; background: var(--card); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }}
     .screenshot-card.wide {{ grid-column: 1 / -1; }}
     .screenshot-card:not(.wide) {{ aspect-ratio: 1 / 1; display: flex; flex-direction: column; }}
-    .screenshot-card img {{ display: block; width: 100%; height: auto; }}
-    .screenshot-card:not(.wide) img {{ flex: 1 1 auto; min-height: 0; object-fit: contain; background: #fbfbfc; }}
+    .screenshot-trigger {{ display: block; width: 100%; cursor: zoom-in; }}
+    .screenshot-trigger img {{ display: block; width: 100%; height: auto; }}
+    .screenshot-trigger:focus-visible {{ outline: 2px solid var(--ai); outline-offset: -3px; }}
+    .screenshot-card:not(.wide) .screenshot-trigger {{ flex: 1 1 auto; min-height: 0; display: flex; }}
+    .screenshot-card:not(.wide) .screenshot-trigger img {{ flex: 1 1 auto; min-height: 0; object-fit: contain; background: #fbfbfc; }}
     figcaption {{ min-height: 52px; padding: 10px 12px; color: #6f6f7a; font-weight: 600; overflow-wrap: anywhere; }}
     @media (max-width: 860px) {{
       .screenshots {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
@@ -616,7 +936,7 @@ def render_report_html(
     @media (max-width: 560px) {{
       main {{ padding: 20px 12px 40px; }}
       .report-header {{ display: block; }}
-      .back-link {{ margin-top: 10px; }}
+      .report-actions {{ margin-top: 10px; }}
       .screenshots {{ grid-template-columns: 1fr; }}
       th, td {{ padding: 8px; }}
     }}
@@ -625,7 +945,7 @@ def render_report_html(
 <body>
   <main id="report-top">
     <div class="report-header">
-      <h1>JM AI 设计规范审核报告</h1>
+      <h1>{_text(audit_spec_label)}审核报告</h1>
       {_back_link(task_id)}
     </div>
     <section class="summary">

@@ -35,6 +35,7 @@ class Task:
     title: str
     status: str
     image_count: int
+    audit_spec_id: str
     screen_width_px: int | None
     screen_height_px: int | None
     summary: str | None

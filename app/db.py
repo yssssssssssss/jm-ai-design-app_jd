@@ -6,7 +6,7 @@ from pathlib import Path
 from app.time_utils import beijing_now_text
 
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 CORE_TABLES = {"users", "tasks", "task_images"}
 
 
@@ -48,7 +48,7 @@ def init_db(conn: sqlite3.Connection) -> None:
     version = _user_version(conn)
     if version == 0 and _has_core_tables(conn):
         raise RuntimeError("existing unversioned schema requires migration/recreate")
-    if version not in (0, 1, 2, SCHEMA_VERSION):
+    if version not in (0, 1, 2, 3, SCHEMA_VERSION):
         raise RuntimeError(f"unsupported database schema version: {version}")
 
     conn.executescript(
@@ -69,6 +69,7 @@ def init_db(conn: sqlite3.Connection) -> None:
           title text not null,
           status text not null check (status in ('queued', 'running', 'succeeded', 'failed')),
           image_count integer not null check (image_count > 0),
+          audit_spec_id text not null default 'jm-ai',
           screen_width_px integer check (screen_width_px is null or screen_width_px > 0),
           screen_height_px integer check (screen_height_px is null or screen_height_px > 0),
           summary text,
@@ -107,6 +108,13 @@ def init_db(conn: sqlite3.Connection) -> None:
           on task_report_reads(user_id, read_at desc);
         """
     )
+    if version in (1, 2, 3):
+        _ensure_column(
+            conn,
+            "tasks",
+            "audit_spec_id",
+            "audit_spec_id text not null default 'jm-ai'",
+        )
     if version in (1, 2):
         _ensure_column(
             conn,

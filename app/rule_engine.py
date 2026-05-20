@@ -22,12 +22,16 @@ def apply_rule_review(
     tokens: dict[str, Any] | None,
     measurements: dict[str, Any] | None,
     image_size: tuple[int, int],
+    audit_spec_label: str = "JM AI 设计规范",
 ) -> dict[str, Any]:
     reviewed = deepcopy(audit)
     _ensure_shape(reviewed)
     reviewed["issues"] = [_normalize_issue(issue, image_size) for issue in _list(reviewed.get("issues"))]
     reviewed["rule_warnings"] = _list(reviewed.get("rule_warnings"))
     reviewed["rule_hits"] = _list(reviewed.get("rule_hits"))
+
+    if not _uses_jm_ai_rules(audit_spec_label):
+        return reviewed
 
     for issue in _color_issues_from_samples(tokens):
         reviewed["rule_hits"].append(_rule_hit(issue))
@@ -37,6 +41,10 @@ def apply_rule_review(
         _upsert_rule_finding(reviewed["issues"], reviewed["rule_warnings"], issue)
 
     return reviewed
+
+
+def _uses_jm_ai_rules(audit_spec_label: str) -> bool:
+    return (audit_spec_label or "").strip() == "JM AI 设计规范"
 
 
 def _ensure_shape(audit: dict[str, Any]) -> None:

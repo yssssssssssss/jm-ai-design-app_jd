@@ -119,6 +119,21 @@ def test_merge_audit_attempts_degrades_when_one_model_fails():
     assert "单模型降级" in result["overall_conclusion"]
 
 
+def test_merge_audit_attempts_uses_selected_spec_label_in_fallback_conclusion():
+    attempts = [
+        {"model": "GPT-5.5", "error": "timeout"},
+        {"model": "Kimi-K2.6", "audit": _audit("Kimi-K2.6", [{"severity": "中", "location": "任务节点"}])},
+    ]
+
+    result = merge_audit_attempts(
+        attempts,
+        audit_spec_label="京东 B 端设计规范（B-design Agent 组件规范）",
+    )
+
+    assert "京东 B 端设计规范（B-design Agent 组件规范）问题" in result["overall_conclusion"]
+    assert "JM AI" not in result["overall_conclusion"]
+
+
 def test_merge_audit_attempts_raises_when_all_models_fail():
     with pytest.raises(RuntimeError, match="全部模型审核失败"):
         merge_audit_attempts(

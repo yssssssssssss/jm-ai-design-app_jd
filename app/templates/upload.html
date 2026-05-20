@@ -18,6 +18,22 @@
       <span>任务标题</span>
       <input name="title" required value="JM AI 设计审核" aria-label="任务标题">
     </label>
+    <fieldset class="audit-spec-field">
+      <legend>审核规范</legend>
+      <div class="audit-spec-options">
+        {% for spec in audit_specs %}
+          <label class="audit-spec-option">
+            <input
+              type="checkbox"
+              name="audit_spec_ids"
+              value="{{ spec.id }}"
+              {% if spec.id in selected_audit_spec_ids %}checked{% endif %}
+            >
+            <span>{{ spec.label }}</span>
+          </label>
+        {% endfor %}
+      </div>
+    </fieldset>
     <div class="upload-block">
       <div class="upload-header">
         <span class="upload-title">上传文件</span>

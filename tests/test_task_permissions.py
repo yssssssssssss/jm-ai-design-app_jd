@@ -69,7 +69,11 @@ def test_upload_creates_task_and_lists_only_owner_tasks(client, tmp_path):
     page = client.get("/")
     response = client.post(
         "/tasks",
-        data={"title": "Alice audit", "csrf_token": _csrf(page.text)},
+        data={
+            "title": "Alice audit",
+            "audit_spec_ids": "jm-ai",
+            "csrf_token": _csrf(page.text),
+        },
         files=[
             ("files", ("a.png", _png_bytes(tmp_path, "a.png"), "image/png")),
             ("files", ("b.png", _png_bytes(tmp_path, "b.png"), "image/png")),
@@ -103,6 +107,21 @@ def test_upload_page_hides_declared_screen_size_inputs(client):
     assert "稿件尺寸" not in page.text
 
 
+def test_upload_page_uses_checkbox_audit_spec_selection(client):
+    _register(client, "alice")
+
+    page = client.get("/")
+
+    assert page.status_code == 200
+    assert "<select" not in page.text
+    assert 'type="radio"' not in page.text
+    assert 'type="checkbox"' in page.text
+    assert 'name="audit_spec_ids"' in page.text
+    assert "checked" not in page.text
+    assert "JM AI 设计规范" in page.text
+    assert "京东 B 端设计规范" in page.text
+
+
 def test_upload_persists_declared_screen_size(client, settings, tmp_path):
     _register(client, "alice")
     page = client.get("/")
@@ -112,6 +131,7 @@ def test_upload_persists_declared_screen_size(client, settings, tmp_path):
             "title": "Desktop audit",
             "screen_width_px": "1440",
             "screen_height_px": "900",
+            "audit_spec_ids": "jm-ai",
             "csrf_token": _csrf(page.text),
         },
         files=[("files", ("a.png", _png_bytes(tmp_path, "a.png"), "image/png"))],
@@ -147,7 +167,11 @@ def test_upload_enqueues_task_without_running_audit(monkeypatch, settings, tmp_p
         page = local_client.get("/")
         response = local_client.post(
             "/tasks",
-            data={"title": "Queued audit", "csrf_token": _csrf(page.text)},
+            data={
+                "title": "Queued audit",
+                "audit_spec_ids": "jm-ai",
+                "csrf_token": _csrf(page.text),
+            },
             files=[("files", ("a.png", _png_bytes(tmp_path, "a.png"), "image/png"))],
             follow_redirects=False,
         )
@@ -174,6 +198,7 @@ def test_upload_rejects_partial_or_non_integer_screen_size(client, tmp_path):
             "title": "Bad audit",
             "screen_width_px": "1440",
             "screen_height_px": "",
+            "audit_spec_ids": "jm-ai",
             "csrf_token": _csrf(page.text),
         },
         files=[("files", ("a.png", _png_bytes(tmp_path, "a.png"), "image/png"))],
@@ -184,6 +209,7 @@ def test_upload_rejects_partial_or_non_integer_screen_size(client, tmp_path):
             "title": "Bad audit",
             "screen_width_px": "1440.5",
             "screen_height_px": "900",
+            "audit_spec_ids": "jm-ai",
             "csrf_token": _csrf(page.text),
         },
         files=[("files", ("b.png", _png_bytes(tmp_path, "b.png"), "image/png"))],
@@ -243,7 +269,11 @@ def test_normal_user_cannot_open_other_user_task(client, tmp_path):
     page = client.get("/")
     response = client.post(
         "/tasks",
-        data={"title": "Alice private", "csrf_token": _csrf(page.text)},
+        data={
+            "title": "Alice private",
+            "audit_spec_ids": "jm-ai",
+            "csrf_token": _csrf(page.text),
+        },
         files=[("files", ("a.png", _png_bytes(tmp_path, "a.png"), "image/png"))],
         follow_redirects=False,
     )

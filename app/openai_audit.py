@@ -7,9 +7,18 @@ from typing import Any, Protocol
 
 from PIL import Image
 
+from app.b_design_router import (
+    component_names,
+    has_selected_b_design_components,
+    is_b_design_label,
+    normalize_b_design_applicability,
+    select_b_design_spec_context,
+)
 from app.prompt_builder import (
     SCHEMA_VERSION,
     build_audit_prompt,
+    build_b_design_applicability_prompt,
+    build_kimi_light_audit_prompt,
     build_light_audit_prompt,
     prompt_metadata,
 )
@@ -29,7 +38,9 @@ REQUIRED_KEYS = {
 }
 ARRAY_KEYS = REQUIRED_KEYS - {"screen_context", "overall_conclusion"}
 CHAT_AUDIT_MAX_TOKENS = 32768
-CHAT_AUDIT_LIGHT_MAX_TOKENS = 4096
+CHAT_AUDIT_LIGHT_MAX_TOKENS = 8192
+KIMI_CHAT_AUDIT_LIGHT_MAX_TOKENS = 16384
+B_DESIGN_APPLICABILITY_MAX_TOKENS = 4096
 SEVERITY_MAP = {
     "critical": "高",
     "high": "高",
@@ -155,6 +166,8 @@ def audit_json_schema() -> dict[str, Any]:
                                 "maximum": 1,
                             },
                             "bbox": _nullable_bbox(),
+                            "rule_source_type": _nullable_string(),
+                            "rule_source_ref": _nullable_string(),
                         }
                     ),
                 },
@@ -229,10 +242,55 @@ def audit_json_schema() -> dict[str, Any]:
     }
 
 
+def b_design_applicability_json_schema() -> dict[str, Any]:
+    return {
+        "type": "json_schema",
+        "name": "b_design_applicability",
+        "strict": True,
+        "schema": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "screen_context",
+                "applicability",
+                "matched_components",
+                "reason",
+                "cannot_verify",
+            ],
+            "properties": {
+                "screen_context": {"type": "string"},
+                "applicability": {"type": "string", "enum": ["strong", "weak", "none"]},
+                "matched_components": {
+                    "type": "array",
+                    "items": _strict_object_schema(
+                        {
+                            "component_id": {"type": "string"},
+                            "component_name": {"type": "string"},
+                            "confidence": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1,
+                            },
+                            "applicability": {
+                                "type": "string",
+                                "enum": ["strong", "weak", "none"],
+                            },
+                            "evidence": {"type": "string"},
+                        }
+                    ),
+                },
+                "reason": {"type": "string"},
+                "cannot_verify": {"type": "array", "items": {"type": "string"}},
+            },
+        },
+    }
+
+
 def parse_audit_json(
     text: str,
     allow_missing_arrays: bool = False,
     image_size: tuple[int, int] | None = None,
+    audit_spec_label: str = "JM AI 设计规范",
 ) -> dict[str, Any]:
     try:
         data = json.loads(text)
@@ -243,7 +301,11 @@ def parse_audit_json(
         raise AuditModelError("模型返回的 JSON 必须是对象")
 
     if allow_missing_arrays:
-        data = _normalize_chat_audit_payload(data, image_size=image_size)
+        data = _normalize_chat_audit_payload(
+            data,
+            image_size=image_size,
+            audit_spec_label=audit_spec_label,
+        )
         _reject_empty_chat_audit(data)
 
     missing = REQUIRED_KEYS - set(data)
@@ -265,15 +327,24 @@ def parse_strict_audit_json(text: str) -> dict[str, Any]:
     return parse_audit_json(text, allow_missing_arrays=False)
 
 
-def _with_prompt_metadata(audit: dict[str, Any]) -> dict[str, Any]:
-    return {**audit, **prompt_metadata()}
+def _with_prompt_metadata(
+    audit: dict[str, Any],
+    audit_spec_label: str = "JM AI 设计规范",
+) -> dict[str, Any]:
+    return {**audit, **prompt_metadata(audit_spec_label)}
 
 
 def parse_lenient_chat_audit_json(
     text: str,
     image_size: tuple[int, int] | None = None,
+    audit_spec_label: str = "JM AI 设计规范",
 ) -> dict[str, Any]:
-    return parse_audit_json(text, allow_missing_arrays=True, image_size=image_size)
+    return parse_audit_json(
+        text,
+        allow_missing_arrays=True,
+        image_size=image_size,
+        audit_spec_label=audit_spec_label,
+    )
 
 
 def _reject_empty_chat_audit(data: dict[str, Any]) -> None:
@@ -301,8 +372,10 @@ def _reject_empty_chat_audit(data: dict[str, Any]) -> None:
 def _normalize_chat_audit_payload(
     data: dict[str, Any],
     image_size: tuple[int, int] | None = None,
+    audit_spec_label: str = "JM AI 设计规范",
 ) -> dict[str, Any]:
     normalized = dict(data)
+    label = _audit_spec_phrase(audit_spec_label)
     if not normalized.get("screen_context"):
         normalized["screen_context"] = _first_text(
             normalized.get("page_context"),
@@ -316,16 +389,45 @@ def _normalize_chat_audit_payload(
             normalized.get("conclusion"),
             normalized.get("summary"),
             normalized.get("audit_summary"),
+            audit_spec_label=audit_spec_label,
+        )
+    else:
+        normalized["overall_conclusion"] = _normalize_conclusion(
+            normalized.get("overall_conclusion"),
+            audit_spec_label=audit_spec_label,
         )
 
-    issues = _normalize_issue_list(normalized.get("issues"), image_size=image_size)
+    issues = _normalize_issue_list(
+        normalized.get("issues"),
+        image_size=image_size,
+        audit_spec_label=audit_spec_label,
+    )
     for key in ["problems", "violations", "findings"]:
-        issues.extend(_normalize_issue_list(normalized.get(key), image_size=image_size))
-    issues.extend(_issues_from_sections(normalized, image_size=image_size))
-    issues.extend(_issues_from_notes(normalized, image_size=image_size))
+        issues.extend(
+            _normalize_issue_list(
+                normalized.get(key),
+                image_size=image_size,
+                audit_spec_label=audit_spec_label,
+            )
+        )
+    issues.extend(
+        _issues_from_sections(
+            normalized,
+            image_size=image_size,
+            audit_spec_label=audit_spec_label,
+        )
+    )
+    issues.extend(
+        _issues_from_notes(
+            normalized,
+            image_size=image_size,
+            audit_spec_label=audit_spec_label,
+        )
+    )
     category_issues = _issues_from_categories(
         normalized.get("categories"),
         image_size=image_size,
+        audit_spec_label=audit_spec_label,
     )
     if category_issues:
         issues = category_issues if not issues else issues + category_issues
@@ -340,14 +442,15 @@ def _normalize_chat_audit_payload(
     elif not isinstance(normalized["major_issues"], list):
         normalized["major_issues"] = [normalized["major_issues"]]
     if issues and _is_generic_conclusion(normalized.get("overall_conclusion")):
-        normalized["overall_conclusion"] = (
-            f"存在 {len(issues)} 个需要调整的 JM AI 设计规范问题。"
-        )
+        normalized["overall_conclusion"] = f"存在 {len(issues)} 个需要调整的{label}问题。"
     normalized["checklist"] = _normalize_checklist(normalized.get("checklist"))
     if issues and not _has_visible_checklist_items(normalized["checklist"]):
         normalized["checklist"] = _checklist_from_issues(issues)
     if not issues:
-        issues = _issues_from_failed_checklist(normalized.get("checklist"))
+        issues = _issues_from_failed_checklist(
+            normalized.get("checklist"),
+            audit_spec_label=audit_spec_label,
+        )
         normalized["issues"] = issues
         if not normalized.get("major_issues"):
             normalized["major_issues"] = [
@@ -356,9 +459,7 @@ def _normalize_chat_audit_payload(
                 if issue.get("current_observation")
             ][:8]
         if issues and _is_generic_conclusion(normalized.get("overall_conclusion")):
-            normalized["overall_conclusion"] = (
-                f"存在 {len(issues)} 个需要调整的 JM AI 设计规范问题。"
-            )
+            normalized["overall_conclusion"] = f"存在 {len(issues)} 个需要调整的{label}问题。"
     normalized["passes"] = _normalize_passes(normalized)
     normalized["cannot_verify"] = _normalize_cannot_verify(normalized)
     normalized["regions"] = _normalize_regions(normalized, image_size=image_size)
@@ -439,15 +540,26 @@ def _infer_screen_context(data: dict[str, Any]) -> str:
     return ""
 
 
-def _normalize_conclusion(*values: Any) -> str:
+def _audit_spec_phrase(audit_spec_label: str) -> str:
+    label = (audit_spec_label or "JM AI 设计规范").strip()
+    if label == "JM AI 设计规范":
+        return " JM AI 设计规范"
+    return label
+
+
+def _normalize_conclusion(
+    *values: Any,
+    audit_spec_label: str = "JM AI 设计规范",
+) -> str:
+    label = _audit_spec_phrase(audit_spec_label)
     for value in values:
         if isinstance(value, str) and value.strip():
             raw = value.strip()
             lowered = raw.lower()
             if lowered in {"pass", "passed"}:
-                return "整体符合 JM AI 设计规范。"
+                return f"整体符合{label}。"
             if lowered in {"fail", "failed"}:
-                return "存在不符合 JM AI 设计规范的问题。"
+                return f"存在不符合{label}的问题。"
             if lowered in {"pass_with_cautions", "warning", "warnings"}:
                 return "整体可识别，但存在需要调整的设计规范问题。"
             return raw
@@ -501,8 +613,12 @@ def _has_visible_checklist_items(items: list[dict[str, str]]) -> bool:
     return any(item.get("status") in {"通过", "不通过"} for item in items)
 
 
-def _issues_from_failed_checklist(value: Any) -> list[dict[str, Any]]:
+def _issues_from_failed_checklist(
+    value: Any,
+    audit_spec_label: str = "JM AI 设计规范",
+) -> list[dict[str, Any]]:
     issues: list[dict[str, Any]] = []
+    label = _audit_spec_phrase(audit_spec_label)
     for item in _list_or_empty(value):
         if not isinstance(item, dict) or item.get("status") != "不通过":
             continue
@@ -513,10 +629,11 @@ def _issues_from_failed_checklist(value: Any) -> list[dict[str, Any]]:
                 "severity": "warning",
                 "title": item.get("item"),
                 "description": item.get("evidence"),
-                "recommendation": "请按 JM AI 设计规范逐项调整。",
+                "recommendation": f"请按{label}逐项调整。",
             },
             "Checklist",
             len(issues) + 1,
+            audit_spec_label=audit_spec_label,
         )
         if issue:
             issues.append(issue)
@@ -526,6 +643,7 @@ def _issues_from_failed_checklist(value: Any) -> list[dict[str, Any]]:
 def _issues_from_categories(
     value: Any,
     image_size: tuple[int, int] | None = None,
+    audit_spec_label: str = "JM AI 设计规范",
 ) -> list[dict[str, Any]]:
     if not isinstance(value, dict):
         return []
@@ -547,6 +665,7 @@ def _issues_from_categories(
                 str(category),
                 len(issues) + 1,
                 image_size=image_size,
+                audit_spec_label=audit_spec_label,
             )
             if issue:
                 issues.append(issue)
@@ -556,6 +675,7 @@ def _issues_from_categories(
 def _issues_from_sections(
     data: dict[str, Any],
     image_size: tuple[int, int] | None = None,
+    audit_spec_label: str = "JM AI 设计规范",
 ) -> list[dict[str, Any]]:
     issues: list[dict[str, Any]] = []
     for key, value in data.items():
@@ -574,6 +694,7 @@ def _issues_from_sections(
                 str(item.get("category") or key),
                 len(issues) + 1,
                 image_size=image_size,
+                audit_spec_label=audit_spec_label,
             )
             if issue:
                 issues.append(issue)
@@ -583,6 +704,7 @@ def _issues_from_sections(
 def _issues_from_notes(
     data: dict[str, Any],
     image_size: tuple[int, int] | None = None,
+    audit_spec_label: str = "JM AI 设计规范",
 ) -> list[dict[str, Any]]:
     issues: list[dict[str, Any]] = []
     for key, value in data.items():
@@ -604,6 +726,7 @@ def _issues_from_notes(
                 key,
                 len(issues) + 1,
                 image_size=image_size,
+                audit_spec_label=audit_spec_label,
             )
             if issue:
                 issues.append(issue)
@@ -778,6 +901,7 @@ def _list_or_empty(value: Any) -> list[Any]:
 def _normalize_issue_list(
     value: Any,
     image_size: tuple[int, int] | None = None,
+    audit_spec_label: str = "JM AI 设计规范",
 ) -> list[dict[str, Any]]:
     if not isinstance(value, list):
         return []
@@ -785,7 +909,13 @@ def _normalize_issue_list(
     for item in value:
         if not isinstance(item, dict):
             continue
-        issue = _normalize_issue(item, None, len(issues) + 1, image_size=image_size)
+        issue = _normalize_issue(
+            item,
+            None,
+            len(issues) + 1,
+            image_size=image_size,
+            audit_spec_label=audit_spec_label,
+        )
         if issue:
             issues.append(issue)
     return issues
@@ -796,6 +926,7 @@ def _normalize_issue(
     category: str | None,
     index: int,
     image_size: tuple[int, int] | None = None,
+    audit_spec_label: str = "JM AI 设计规范",
 ) -> dict[str, Any] | None:
     evidence = item.get("evidence")
     observation = _first_text(
@@ -828,13 +959,25 @@ def _normalize_issue(
             item.get("recommendation"),
             item.get("suggestion"),
             item.get("fix"),
-            "请按 JM AI 设计规范调整。",
+            f"请按{_audit_spec_phrase(audit_spec_label)}调整。",
         ),
         "confidence": _normalize_confidence(item.get("confidence")),
         "bbox": _normalize_bbox(
             item.get("bbox") or _dict_value(evidence, "bbox"),
             image_size=image_size,
         ),
+        "rule_source_type": _first_text(
+            item.get("rule_source_type"),
+            item.get("source_type"),
+        )
+        or None,
+        "rule_source_ref": _first_text(
+            item.get("rule_source_ref"),
+            item.get("source_ref"),
+            item.get("rule_source"),
+            item.get("source"),
+        )
+        or None,
     }
 
 
@@ -911,11 +1054,166 @@ def image_data_url(path: Path) -> str:
     return f"data:{media_type};base64,{encoded}"
 
 
+def parse_b_design_applicability_json(text: str) -> dict[str, Any]:
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise AuditModelError("B-design 适用性识别 JSON 无法解析") from exc
+    return normalize_b_design_applicability(data)
+
+
+def _detect_b_design_applicability_with_responses(
+    client: _OpenAIClient,
+    model: str,
+    image_path: Path,
+    audit_spec_label: str,
+    actual_image_size: tuple[int, int],
+    reasoning_effort: str | None = None,
+    declared_screen_size: tuple[int, int] | None = None,
+    scale_context: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    request: dict[str, Any] = {
+        "model": model,
+        "input": [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "input_text",
+                        "text": build_b_design_applicability_prompt(
+                            audit_spec_label=audit_spec_label,
+                            actual_image_size=actual_image_size,
+                            declared_screen_size=declared_screen_size,
+                            scale_context=scale_context,
+                        ),
+                    },
+                    {
+                        "type": "input_image",
+                        "image_url": image_data_url(image_path),
+                        "detail": "high",
+                    },
+                ],
+            }
+        ],
+        "text": {"format": b_design_applicability_json_schema()},
+    }
+    if reasoning_effort:
+        request["reasoning"] = {"effort": reasoning_effort}
+    response = client.responses.create(**request)
+    return parse_b_design_applicability_json(response.output_text)
+
+
+def _detect_b_design_applicability_with_chat(
+    client: _OpenAIClient,
+    model: str,
+    image_path: Path,
+    audit_spec_label: str,
+    actual_image_size: tuple[int, int],
+    reasoning_effort: str | None = None,
+    declared_screen_size: tuple[int, int] | None = None,
+    scale_context: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    request: dict[str, Any] = {
+        "model": model,
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": build_b_design_applicability_prompt(
+                            audit_spec_label=audit_spec_label,
+                            actual_image_size=actual_image_size,
+                            declared_screen_size=declared_screen_size,
+                            scale_context=scale_context,
+                        ),
+                    },
+                    {"type": "image_url", "image_url": {"url": image_data_url(image_path)}},
+                ],
+            }
+        ],
+        "response_format": {"type": "json_object"},
+        "max_tokens": B_DESIGN_APPLICABILITY_MAX_TOKENS,
+    }
+    if reasoning_effort:
+        request["reasoning"] = {"effort": reasoning_effort}
+    response = client.chat.completions.create(**request)
+    choice = response.choices[0]
+    content = choice.message.content
+    if not isinstance(content, str) or not content.strip():
+        finish_reason = getattr(choice, "finish_reason", None)
+        raise AuditModelError(
+            "B-design 适用性识别没有返回 JSON 内容"
+            f" (finish_reason={finish_reason}). "
+            "请提高适用性识别输出 token 上限，或检查该模型是否支持图片 JSON 输出。"
+        )
+    return parse_b_design_applicability_json(content)
+
+
+def _routed_b_design_context(
+    spec_text: str,
+    applicability: dict[str, Any],
+) -> dict[str, Any]:
+    return select_b_design_spec_context(
+        spec_text,
+        list(applicability.get("selected_component_ids") or []),
+    )
+
+
+def _b_design_not_applicable_audit(
+    audit_spec_label: str,
+    applicability: dict[str, Any],
+) -> dict[str, Any]:
+    reason = (
+        applicability.get("reason")
+        or "截图未命中 B-design 覆盖组件或扩展规则场景。"
+    )
+    audit = {
+        "screen_context": applicability.get("screen_context") or "未命中 B-design 规范覆盖",
+        "overall_conclusion": (
+            "未命中 B-design 规范覆盖范围；本次不输出规范违规问题。"
+        ),
+        "major_issues": [],
+        "passes": [],
+        "issues": [],
+        "sample_points": [],
+        "regions": [],
+        "distances": [],
+        "checklist": [],
+        "cannot_verify": [
+            {
+                "item": "B-design 规范适用性",
+                "reason": str(reason),
+            }
+        ],
+        "b_design_applicability": applicability,
+        "loaded_spec_sections": [],
+    }
+    return _with_prompt_metadata(audit, audit_spec_label=audit_spec_label)
+
+
+def _with_b_design_routing_metadata(
+    audit: dict[str, Any],
+    applicability: dict[str, Any] | None,
+    context: dict[str, Any] | None,
+) -> dict[str, Any]:
+    if applicability is None:
+        return audit
+    output = dict(audit)
+    output["b_design_applicability"] = applicability
+    output["loaded_spec_sections"] = list((context or {}).get("loaded_sections") or [])
+    output["loaded_spec_components"] = component_names(
+        list((context or {}).get("component_ids") or [])
+    )
+    return output
+
+
 def audit_image(
     client: _OpenAIClient,
     model: str,
     image_path: Path,
     spec_text: str,
+    audit_spec_label: str = "JM AI 设计规范",
     reasoning_effort: str | None = None,
     declared_screen_size: tuple[int, int] | None = None,
     scale_context: dict[str, Any] | None = None,
@@ -924,11 +1222,29 @@ def audit_image(
 ) -> dict[str, Any]:
     actual_image_size = _image_size(image_path)
     normalized_size = _image_size(normalized_preview_path) if normalized_preview_path else None
+    b_design_applicability: dict[str, Any] | None = None
+    b_design_context: dict[str, Any] | None = None
+    if is_b_design_label(audit_spec_label):
+        b_design_applicability = _detect_b_design_applicability_with_responses(
+            client,
+            model,
+            image_path,
+            audit_spec_label,
+            actual_image_size,
+            reasoning_effort=reasoning_effort,
+            declared_screen_size=declared_screen_size,
+            scale_context=scale_context,
+        )
+        if not has_selected_b_design_components(b_design_applicability):
+            return _b_design_not_applicable_audit(audit_spec_label, b_design_applicability)
+        b_design_context = _routed_b_design_context(spec_text, b_design_applicability)
+        spec_text = str(b_design_context["spec_text"])
     content: list[dict[str, Any]] = [
         {
             "type": "input_text",
             "text": build_audit_prompt(
                 spec_text,
+                audit_spec_label=audit_spec_label,
                 declared_screen_size=declared_screen_size,
                 actual_image_size=actual_image_size,
                 scale_context=scale_context,
@@ -964,7 +1280,15 @@ def audit_image(
         request["reasoning"] = {"effort": reasoning_effort}
 
     response = client.responses.create(**request)
-    return _with_prompt_metadata(parse_strict_audit_json(response.output_text))
+    audit = _with_b_design_routing_metadata(
+        parse_strict_audit_json(response.output_text),
+        b_design_applicability,
+        b_design_context,
+    )
+    return _with_prompt_metadata(
+        audit,
+        audit_spec_label=audit_spec_label,
+    )
 
 
 def audit_image_with_chat(
@@ -972,6 +1296,7 @@ def audit_image_with_chat(
     model: str,
     image_path: Path,
     spec_text: str,
+    audit_spec_label: str = "JM AI 设计规范",
     reasoning_effort: str | None = None,
     declared_screen_size: tuple[int, int] | None = None,
     scale_context: dict[str, Any] | None = None,
@@ -980,9 +1305,27 @@ def audit_image_with_chat(
 ) -> dict[str, Any]:
     actual_image_size = _image_size(image_path)
     normalized_size = _image_size(normalized_preview_path) if normalized_preview_path else None
+    b_design_applicability: dict[str, Any] | None = None
+    b_design_context: dict[str, Any] | None = None
+    if is_b_design_label(audit_spec_label):
+        b_design_applicability = _detect_b_design_applicability_with_chat(
+            client,
+            model,
+            image_path,
+            audit_spec_label,
+            actual_image_size,
+            reasoning_effort=reasoning_effort,
+            declared_screen_size=declared_screen_size,
+            scale_context=scale_context,
+        )
+        if not has_selected_b_design_components(b_design_applicability):
+            return _b_design_not_applicable_audit(audit_spec_label, b_design_applicability)
+        b_design_context = _routed_b_design_context(spec_text, b_design_applicability)
+        spec_text = str(b_design_context["spec_text"])
     prompt = (
         build_audit_prompt(
             spec_text,
+            audit_spec_label=audit_spec_label,
             declared_screen_size=declared_screen_size,
             actual_image_size=actual_image_size,
             scale_context=scale_context,
@@ -997,8 +1340,11 @@ def audit_image_with_chat(
         "distances(array), checklist(array), cannot_verify(array)。"
         "发现问题必须写入 issues；不要只写 notes、summary 或分组章节。"
         "每个 issue 必须包含 id, category, severity(高/中/低), location, "
-        "current_observation, spec_expectation, recommendation, confidence, bbox。"
+        "current_observation, spec_expectation, recommendation, confidence, bbox, "
+        "rule_source_type, rule_source_ref。"
         "bbox 必须是截图像素 [x,y,w,h]；无法定位时填 null。"
+        "B-design issue 的 rule_source_type 只能为 pdf_text、pdf_visual_example 或 alpha_case；"
+        "非 B-design 审核可填 null。"
         "正向观察写入 passes；无法确认项写入 cannot_verify。"
     )
     content: list[dict[str, Any]] = [
@@ -1033,11 +1379,18 @@ def audit_image_with_chat(
             f" (finish_reason={finish_reason}). "
             "请提高输出 token 上限，或检查该模型是否支持图片 JSON 输出。"
         )
-    return _with_prompt_metadata(
+    audit = _with_b_design_routing_metadata(
         parse_lenient_chat_audit_json(
             content,
             image_size=actual_image_size,
-        )
+            audit_spec_label=audit_spec_label,
+        ),
+        b_design_applicability,
+        b_design_context,
+    )
+    return _with_prompt_metadata(
+        audit,
+        audit_spec_label=audit_spec_label,
     )
 
 
@@ -1046,22 +1399,55 @@ def audit_image_with_chat_light(
     model: str,
     image_path: Path,
     spec_text: str,
+    audit_spec_label: str = "JM AI 设计规范",
     reasoning_effort: str | None = None,
     declared_screen_size: tuple[int, int] | None = None,
     scale_context: dict[str, Any] | None = None,
     normalized_preview_path: Path | None = None,
     experiment_variant: str | None = None,
 ) -> dict[str, Any]:
-    del spec_text
     actual_image_size = _image_size(image_path)
     normalized_size = _image_size(normalized_preview_path) if normalized_preview_path else None
-    prompt = build_light_audit_prompt(
-        declared_screen_size=declared_screen_size,
-        actual_image_size=actual_image_size,
-        scale_context=scale_context,
-        normalized_preview_size=normalized_size,
-        experiment_variant=experiment_variant,
-    )
+    b_design_applicability: dict[str, Any] | None = None
+    b_design_context: dict[str, Any] | None = None
+    if is_b_design_label(audit_spec_label):
+        b_design_applicability = _detect_b_design_applicability_with_chat(
+            client,
+            model,
+            image_path,
+            audit_spec_label,
+            actual_image_size,
+            reasoning_effort=reasoning_effort,
+            declared_screen_size=declared_screen_size,
+            scale_context=scale_context,
+        )
+        if not has_selected_b_design_components(b_design_applicability):
+            return _b_design_not_applicable_audit(audit_spec_label, b_design_applicability)
+        b_design_context = _routed_b_design_context(spec_text, b_design_applicability)
+        spec_text = str(b_design_context["spec_text"])
+        prompt = (
+            build_audit_prompt(
+                spec_text,
+                audit_spec_label=audit_spec_label,
+                declared_screen_size=declared_screen_size,
+                actual_image_size=actual_image_size,
+                scale_context=scale_context,
+                normalized_preview_size=normalized_size,
+                experiment_variant=experiment_variant,
+            )
+            + "\n\n只依据上方已加载的 B-design 章节审核。"
+            "不要输出通用 B 端界面风险，不要使用未加载章节或其他规范。"
+            "每个 issue 必须填写 rule_source_type 和 rule_source_ref。"
+        )
+    else:
+        prompt = build_light_audit_prompt(
+            audit_spec_label=audit_spec_label,
+            declared_screen_size=declared_screen_size,
+            actual_image_size=actual_image_size,
+            scale_context=scale_context,
+            normalized_preview_size=normalized_size,
+            experiment_variant=experiment_variant,
+        )
     content: list[dict[str, Any]] = [
         {"type": "text", "text": prompt},
         {"type": "image_url", "image_url": {"url": image_data_url(image_path)}},
@@ -1094,9 +1480,118 @@ def audit_image_with_chat_light(
             f" (finish_reason={finish_reason}). "
             "请检查该模型是否支持图片 JSON 输出，或切回 full prompt mode。"
         )
-    return _with_prompt_metadata(
+    audit = _with_b_design_routing_metadata(
         parse_lenient_chat_audit_json(
             content,
             image_size=actual_image_size,
+            audit_spec_label=audit_spec_label,
+        ),
+        b_design_applicability,
+        b_design_context,
+    )
+    return _with_prompt_metadata(
+        audit,
+        audit_spec_label=audit_spec_label,
+    )
+
+
+def audit_image_with_kimi_light(
+    client: _OpenAIClient,
+    model: str,
+    image_path: Path,
+    spec_text: str,
+    audit_spec_label: str = "JM AI 设计规范",
+    reasoning_effort: str | None = None,
+    declared_screen_size: tuple[int, int] | None = None,
+    scale_context: dict[str, Any] | None = None,
+    normalized_preview_path: Path | None = None,
+    experiment_variant: str | None = None,
+) -> dict[str, Any]:
+    actual_image_size = _image_size(image_path)
+    normalized_size = _image_size(normalized_preview_path) if normalized_preview_path else None
+    b_design_applicability: dict[str, Any] | None = None
+    b_design_context: dict[str, Any] | None = None
+    if is_b_design_label(audit_spec_label):
+        b_design_applicability = _detect_b_design_applicability_with_chat(
+            client,
+            model,
+            image_path,
+            audit_spec_label,
+            actual_image_size,
+            reasoning_effort=reasoning_effort,
+            declared_screen_size=declared_screen_size,
+            scale_context=scale_context,
         )
+        if not has_selected_b_design_components(b_design_applicability):
+            return _b_design_not_applicable_audit(audit_spec_label, b_design_applicability)
+        b_design_context = _routed_b_design_context(spec_text, b_design_applicability)
+        spec_text = str(b_design_context["spec_text"])
+        prompt = (
+            build_audit_prompt(
+                spec_text,
+                audit_spec_label=audit_spec_label,
+                declared_screen_size=declared_screen_size,
+                actual_image_size=actual_image_size,
+                scale_context=scale_context,
+                normalized_preview_size=normalized_size,
+                experiment_variant=experiment_variant,
+            )
+            + "\n\n只依据上方已加载的 B-design 章节审核。"
+            "不要输出通用 B 端界面风险，不要使用未加载章节或其他规范。"
+            "每个 issue 必须填写 rule_source_type 和 rule_source_ref。"
+            "保持输出紧凑，每个中文文本字段不超过 60 字。"
+        )
+    else:
+        prompt = build_kimi_light_audit_prompt(
+            audit_spec_label=audit_spec_label,
+            declared_screen_size=declared_screen_size,
+            actual_image_size=actual_image_size,
+            scale_context=scale_context,
+            normalized_preview_size=normalized_size,
+            experiment_variant=experiment_variant,
+        )
+    content: list[dict[str, Any]] = [
+        {"type": "text", "text": prompt},
+        {"type": "image_url", "image_url": {"url": image_data_url(image_path)}},
+    ]
+    if normalized_preview_path:
+        content.append(
+            {"type": "image_url", "image_url": {"url": image_data_url(normalized_preview_path)}}
+        )
+    request: dict[str, Any] = {
+        "model": model,
+        "messages": [
+            {
+                "role": "user",
+                "content": content,
+            }
+        ],
+        "response_format": {"type": "json_object"},
+        "max_tokens": KIMI_CHAT_AUDIT_LIGHT_MAX_TOKENS,
+    }
+    if reasoning_effort:
+        request["reasoning"] = {"effort": reasoning_effort}
+
+    response = client.chat.completions.create(**request)
+    choice = response.choices[0]
+    content = choice.message.content
+    if not isinstance(content, str) or not content.strip():
+        finish_reason = getattr(choice, "finish_reason", None)
+        raise AuditModelError(
+            "Kimi 没有返回可解析的紧凑审核 JSON 内容"
+            f" (finish_reason={finish_reason}). "
+            "请进一步压缩 Kimi prompt 或提高 Kimi light 输出上限。"
+        )
+    audit = _with_b_design_routing_metadata(
+        parse_lenient_chat_audit_json(
+            content,
+            image_size=actual_image_size,
+            audit_spec_label=audit_spec_label,
+        ),
+        b_design_applicability,
+        b_design_context,
+    )
+    return _with_prompt_metadata(
+        audit,
+        audit_spec_label=audit_spec_label,
     )

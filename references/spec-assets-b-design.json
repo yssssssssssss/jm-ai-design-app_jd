@@ -1,0 +1,1577 @@
+{
+  "version": 1,
+  "spec_id": "b-design",
+  "assets": [
+    {
+      "id": "b-design-task-planning-p01-01",
+      "label": "任务规划 · 何时使用",
+      "url": "/spec-snippets/b-design/b-design-task-planning-p01-01.png",
+      "source": "任务规划.pdf#page=1",
+      "width": 1046,
+      "height": 589,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "任务规划",
+        "任务计划",
+        "执行计划",
+        "大纲",
+        "浏览类",
+        "节点类",
+        "何时使用"
+      ]
+    },
+    {
+      "id": "b-design-task-planning-p01-02",
+      "label": "任务规划 · 何时使用",
+      "url": "/spec-snippets/b-design/b-design-task-planning-p01-02.png",
+      "source": "任务规划.pdf#page=1",
+      "width": 1044,
+      "height": 592,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "任务规划",
+        "任务计划",
+        "执行计划",
+        "大纲",
+        "浏览类",
+        "节点类",
+        "何时使用"
+      ]
+    },
+    {
+      "id": "b-design-task-planning-p02-01",
+      "label": "任务规划 · 组件构成",
+      "url": "/spec-snippets/b-design/b-design-task-planning-p02-01.png",
+      "source": "任务规划.pdf#page=2",
+      "width": 843,
+      "height": 718,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "任务规划",
+        "任务计划",
+        "执行计划",
+        "大纲",
+        "浏览类",
+        "节点类",
+        "组件构成",
+        "生成中",
+        "已生成",
+        "进行中",
+        "已完成"
+      ]
+    },
+    {
+      "id": "b-design-task-planning-p03-01",
+      "label": "任务规划 · 已生成",
+      "url": "/spec-snippets/b-design/b-design-task-planning-p03-01.png",
+      "source": "任务规划.pdf#page=3",
+      "width": 795,
+      "height": 383,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "任务规划",
+        "任务计划",
+        "执行计划",
+        "大纲",
+        "浏览类",
+        "节点类",
+        "已生成",
+        "生成中",
+        "进行中",
+        "已完成"
+      ]
+    },
+    {
+      "id": "b-design-task-planning-p03-02",
+      "label": "任务规划 · 已生成",
+      "url": "/spec-snippets/b-design/b-design-task-planning-p03-02.png",
+      "source": "任务规划.pdf#page=3",
+      "width": 788,
+      "height": 547,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "任务规划",
+        "任务计划",
+        "执行计划",
+        "大纲",
+        "浏览类",
+        "节点类",
+        "已生成",
+        "生成中",
+        "进行中",
+        "已完成"
+      ]
+    },
+    {
+      "id": "b-design-task-planning-p04-01",
+      "label": "任务规划 · 生成中",
+      "url": "/spec-snippets/b-design/b-design-task-planning-p04-01.png",
+      "source": "任务规划.pdf#page=4",
+      "width": 789,
+      "height": 369,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "任务规划",
+        "任务计划",
+        "执行计划",
+        "大纲",
+        "浏览类",
+        "节点类",
+        "生成中",
+        "已生成",
+        "进行中"
+      ]
+    },
+    {
+      "id": "b-design-task-planning-p04-02",
+      "label": "任务规划 · 生成中",
+      "url": "/spec-snippets/b-design/b-design-task-planning-p04-02.png",
+      "source": "任务规划.pdf#page=4",
+      "width": 789,
+      "height": 450,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "任务规划",
+        "任务计划",
+        "执行计划",
+        "大纲",
+        "浏览类",
+        "节点类",
+        "生成中",
+        "已生成",
+        "进行中"
+      ]
+    },
+    {
+      "id": "b-design-task-planning-p05-01",
+      "label": "任务规划 · 已完成",
+      "url": "/spec-snippets/b-design/b-design-task-planning-p05-01.png",
+      "source": "任务规划.pdf#page=5",
+      "width": 785,
+      "height": 476,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "任务规划",
+        "任务计划",
+        "执行计划",
+        "大纲",
+        "浏览类",
+        "节点类",
+        "已完成",
+        "进行中",
+        "任务终止"
+      ]
+    },
+    {
+      "id": "b-design-task-planning-p05-02",
+      "label": "任务规划 · 已完成",
+      "url": "/spec-snippets/b-design/b-design-task-planning-p05-02.png",
+      "source": "任务规划.pdf#page=5",
+      "width": 368,
+      "height": 541,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "任务规划",
+        "任务计划",
+        "执行计划",
+        "大纲",
+        "浏览类",
+        "节点类",
+        "已完成",
+        "进行中",
+        "任务终止"
+      ]
+    },
+    {
+      "id": "b-design-task-planning-p06-01",
+      "label": "任务规划 · 规范示意图",
+      "url": "/spec-snippets/b-design/b-design-task-planning-p06-01.png",
+      "source": "任务规划.pdf#page=6",
+      "width": 792,
+      "height": 481,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "任务规划",
+        "任务计划",
+        "执行计划",
+        "大纲",
+        "浏览类",
+        "节点类",
+        "规范示意图",
+        "已完成"
+      ]
+    },
+    {
+      "id": "b-design-task-node-p01-01",
+      "label": "任务节点 · 何时使用",
+      "url": "/spec-snippets/b-design/b-design-task-node-p01-01.png",
+      "source": "任务节点.pdf#page=1",
+      "width": 497,
+      "height": 459,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "任务节点",
+        "一级节点",
+        "二级节点",
+        "生成链",
+        "节点状态",
+        "何时使用",
+        "组件构成"
+      ]
+    },
+    {
+      "id": "b-design-task-node-p02-01",
+      "label": "任务节点 · 组件状态",
+      "url": "/spec-snippets/b-design/b-design-task-node-p02-01.png",
+      "source": "任务节点.pdf#page=2",
+      "width": 418,
+      "height": 152,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "任务节点",
+        "一级节点",
+        "二级节点",
+        "生成链",
+        "节点状态",
+        "组件状态",
+        "生成中",
+        "进行中",
+        "已完成",
+        "已终止",
+        "生成失败"
+      ]
+    },
+    {
+      "id": "b-design-task-node-p02-02",
+      "label": "任务节点 · 组件状态",
+      "url": "/spec-snippets/b-design/b-design-task-node-p02-02.png",
+      "source": "任务节点.pdf#page=2",
+      "width": 248,
+      "height": 51,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "任务节点",
+        "一级节点",
+        "二级节点",
+        "生成链",
+        "节点状态",
+        "组件状态",
+        "生成中",
+        "进行中",
+        "已完成",
+        "已终止",
+        "生成失败"
+      ]
+    },
+    {
+      "id": "b-design-task-node-p02-03",
+      "label": "任务节点 · 组件状态",
+      "url": "/spec-snippets/b-design/b-design-task-node-p02-03.png",
+      "source": "任务节点.pdf#page=2",
+      "width": 214,
+      "height": 47,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "任务节点",
+        "一级节点",
+        "二级节点",
+        "生成链",
+        "节点状态",
+        "组件状态",
+        "生成中",
+        "进行中",
+        "已完成",
+        "已终止",
+        "生成失败"
+      ]
+    },
+    {
+      "id": "b-design-task-node-p02-04",
+      "label": "任务节点 · 组件状态",
+      "url": "/spec-snippets/b-design/b-design-task-node-p02-04.png",
+      "source": "任务节点.pdf#page=2",
+      "width": 230,
+      "height": 57,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "任务节点",
+        "一级节点",
+        "二级节点",
+        "生成链",
+        "节点状态",
+        "组件状态",
+        "生成中",
+        "进行中",
+        "已完成",
+        "已终止",
+        "生成失败"
+      ]
+    },
+    {
+      "id": "b-design-task-node-p02-05",
+      "label": "任务节点 · 组件状态",
+      "url": "/spec-snippets/b-design/b-design-task-node-p02-05.png",
+      "source": "任务节点.pdf#page=2",
+      "width": 219,
+      "height": 53,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "任务节点",
+        "一级节点",
+        "二级节点",
+        "生成链",
+        "节点状态",
+        "组件状态",
+        "生成中",
+        "进行中",
+        "已完成",
+        "已终止",
+        "生成失败"
+      ]
+    },
+    {
+      "id": "b-design-task-node-p03-01",
+      "label": "任务节点 · 组件状态",
+      "url": "/spec-snippets/b-design/b-design-task-node-p03-01.png",
+      "source": "任务节点.pdf#page=3",
+      "width": 410,
+      "height": 136,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "任务节点",
+        "一级节点",
+        "二级节点",
+        "生成链",
+        "节点状态",
+        "组件状态",
+        "生成中",
+        "进行中",
+        "已完成",
+        "生成失败",
+        "任务终止"
+      ]
+    },
+    {
+      "id": "b-design-task-node-p03-02",
+      "label": "任务节点 · 组件状态",
+      "url": "/spec-snippets/b-design/b-design-task-node-p03-02.png",
+      "source": "任务节点.pdf#page=3",
+      "width": 331,
+      "height": 98,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "任务节点",
+        "一级节点",
+        "二级节点",
+        "生成链",
+        "节点状态",
+        "组件状态",
+        "生成中",
+        "进行中",
+        "已完成",
+        "生成失败",
+        "任务终止"
+      ]
+    },
+    {
+      "id": "b-design-task-node-p03-03",
+      "label": "任务节点 · 组件状态",
+      "url": "/spec-snippets/b-design/b-design-task-node-p03-03.png",
+      "source": "任务节点.pdf#page=3",
+      "width": 327,
+      "height": 60,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "任务节点",
+        "一级节点",
+        "二级节点",
+        "生成链",
+        "节点状态",
+        "组件状态",
+        "生成中",
+        "进行中",
+        "已完成",
+        "生成失败",
+        "任务终止"
+      ]
+    },
+    {
+      "id": "b-design-task-node-p03-04",
+      "label": "任务节点 · 组件状态",
+      "url": "/spec-snippets/b-design/b-design-task-node-p03-04.png",
+      "source": "任务节点.pdf#page=3",
+      "width": 167,
+      "height": 62,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "任务节点",
+        "一级节点",
+        "二级节点",
+        "生成链",
+        "节点状态",
+        "组件状态",
+        "生成中",
+        "进行中",
+        "已完成",
+        "生成失败",
+        "任务终止"
+      ]
+    },
+    {
+      "id": "b-design-task-node-p03-05",
+      "label": "任务节点 · 组件状态",
+      "url": "/spec-snippets/b-design/b-design-task-node-p03-05.png",
+      "source": "任务节点.pdf#page=3",
+      "width": 236,
+      "height": 62,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "任务节点",
+        "一级节点",
+        "二级节点",
+        "生成链",
+        "节点状态",
+        "组件状态",
+        "生成中",
+        "进行中",
+        "已完成",
+        "生成失败",
+        "任务终止"
+      ]
+    },
+    {
+      "id": "b-design-task-node-p04-01",
+      "label": "任务节点 · 进行中",
+      "url": "/spec-snippets/b-design/b-design-task-node-p04-01.png",
+      "source": "任务节点.pdf#page=4",
+      "width": 1131,
+      "height": 642,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "任务节点",
+        "一级节点",
+        "二级节点",
+        "生成链",
+        "节点状态",
+        "进行中",
+        "已完成",
+        "任务终止"
+      ]
+    },
+    {
+      "id": "b-design-task-node-p04-02",
+      "label": "任务节点 · 进行中",
+      "url": "/spec-snippets/b-design/b-design-task-node-p04-02.png",
+      "source": "任务节点.pdf#page=4",
+      "width": 386,
+      "height": 40,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "任务节点",
+        "一级节点",
+        "二级节点",
+        "生成链",
+        "节点状态",
+        "进行中",
+        "已完成",
+        "任务终止"
+      ]
+    },
+    {
+      "id": "b-design-task-node-p04-03",
+      "label": "任务节点 · 进行中",
+      "url": "/spec-snippets/b-design/b-design-task-node-p04-03.png",
+      "source": "任务节点.pdf#page=4",
+      "width": 391,
+      "height": 44,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "任务节点",
+        "一级节点",
+        "二级节点",
+        "生成链",
+        "节点状态",
+        "进行中",
+        "已完成",
+        "任务终止"
+      ]
+    },
+    {
+      "id": "b-design-task-node-p04-04",
+      "label": "任务节点 · 进行中",
+      "url": "/spec-snippets/b-design/b-design-task-node-p04-04.png",
+      "source": "任务节点.pdf#page=4",
+      "width": 363,
+      "height": 48,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "任务节点",
+        "一级节点",
+        "二级节点",
+        "生成链",
+        "节点状态",
+        "进行中",
+        "已完成",
+        "任务终止"
+      ]
+    },
+    {
+      "id": "b-design-task-node-p05-01",
+      "label": "任务节点 · 任务失败",
+      "url": "/spec-snippets/b-design/b-design-task-node-p05-01.png",
+      "source": "任务节点.pdf#page=5",
+      "width": 405,
+      "height": 57,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "任务节点",
+        "一级节点",
+        "二级节点",
+        "生成链",
+        "节点状态",
+        "任务失败"
+      ]
+    },
+    {
+      "id": "b-design-task-node-p05-02",
+      "label": "任务节点 · 任务失败",
+      "url": "/spec-snippets/b-design/b-design-task-node-p05-02.png",
+      "source": "任务节点.pdf#page=5",
+      "width": 398,
+      "height": 58,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "任务节点",
+        "一级节点",
+        "二级节点",
+        "生成链",
+        "节点状态",
+        "任务失败"
+      ]
+    },
+    {
+      "id": "b-design-data-collection-p01-01",
+      "label": "数据收集 · 何时使用",
+      "url": "/spec-snippets/b-design/b-design-data-collection-p01-01.png",
+      "source": "数据收集.pdf#page=1",
+      "width": 1020,
+      "height": 596,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "数据收集",
+        "收集",
+        "搜索",
+        "阅读",
+        "资料",
+        "分析资料",
+        "何时使用",
+        "组件构成"
+      ]
+    },
+    {
+      "id": "b-design-data-collection-p02-01",
+      "label": "数据收集 · 组件状态",
+      "url": "/spec-snippets/b-design/b-design-data-collection-p02-01.png",
+      "source": "数据收集.pdf#page=2",
+      "width": 979,
+      "height": 271,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "数据收集",
+        "收集",
+        "搜索",
+        "阅读",
+        "资料",
+        "分析资料",
+        "组件状态",
+        "已完成",
+        "已停止"
+      ]
+    },
+    {
+      "id": "b-design-data-collection-p03-01",
+      "label": "数据收集 · 已完成",
+      "url": "/spec-snippets/b-design/b-design-data-collection-p03-01.png",
+      "source": "数据收集.pdf#page=3",
+      "width": 857,
+      "height": 904,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "数据收集",
+        "收集",
+        "搜索",
+        "阅读",
+        "资料",
+        "分析资料",
+        "已完成"
+      ]
+    },
+    {
+      "id": "b-design-data-collection-p04-01",
+      "label": "数据收集 · 已停止",
+      "url": "/spec-snippets/b-design/b-design-data-collection-p04-01.png",
+      "source": "数据收集.pdf#page=4",
+      "width": 857,
+      "height": 764,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "数据收集",
+        "收集",
+        "搜索",
+        "阅读",
+        "资料",
+        "分析资料",
+        "已停止",
+        "已完成"
+      ]
+    },
+    {
+      "id": "b-design-data-collection-p05-01",
+      "label": "数据收集 · 组件交互",
+      "url": "/spec-snippets/b-design/b-design-data-collection-p05-01.png",
+      "source": "数据收集.pdf#page=5",
+      "width": 864,
+      "height": 553,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "数据收集",
+        "收集",
+        "搜索",
+        "阅读",
+        "资料",
+        "分析资料",
+        "组件交互"
+      ]
+    },
+    {
+      "id": "b-design-data-collection-p06-01",
+      "label": "数据收集 · 简易版收集组件构成",
+      "url": "/spec-snippets/b-design/b-design-data-collection-p06-01.png",
+      "source": "数据收集.pdf#page=6",
+      "width": 829,
+      "height": 529,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "数据收集",
+        "收集",
+        "搜索",
+        "阅读",
+        "资料",
+        "分析资料",
+        "简易版收集组件构成",
+        "组件构成"
+      ]
+    },
+    {
+      "id": "b-design-data-collection-p06-02",
+      "label": "数据收集 · 简易版收集组件构成",
+      "url": "/spec-snippets/b-design/b-design-data-collection-p06-02.png",
+      "source": "数据收集.pdf#page=6",
+      "width": 1110,
+      "height": 364,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "数据收集",
+        "收集",
+        "搜索",
+        "阅读",
+        "资料",
+        "分析资料",
+        "简易版收集组件构成",
+        "组件构成"
+      ]
+    },
+    {
+      "id": "b-design-data-collection-p07-01",
+      "label": "数据收集 · 使用场景示意",
+      "url": "/spec-snippets/b-design/b-design-data-collection-p07-01.png",
+      "source": "数据收集.pdf#page=7",
+      "width": 866,
+      "height": 287,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "数据收集",
+        "收集",
+        "搜索",
+        "阅读",
+        "资料",
+        "分析资料",
+        "使用场景示意",
+        "窄屏适配"
+      ]
+    },
+    {
+      "id": "b-design-data-collection-p08-01",
+      "label": "数据收集 · 规范示意图",
+      "url": "/spec-snippets/b-design/b-design-data-collection-p08-01.png",
+      "source": "数据收集.pdf#page=8",
+      "width": 411,
+      "height": 594,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "数据收集",
+        "收集",
+        "搜索",
+        "阅读",
+        "资料",
+        "分析资料",
+        "规范示意图"
+      ]
+    },
+    {
+      "id": "b-design-deep-thinking-p01-01",
+      "label": "深度思考 · 何时使用",
+      "url": "/spec-snippets/b-design/b-design-deep-thinking-p01-01.png",
+      "source": "深度思考.pdf#page=1",
+      "width": 934,
+      "height": 239,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "深度思考",
+        "思考中",
+        "已完成思考",
+        "已停止思考",
+        "何时使用",
+        "组件构成",
+        "组件状态",
+        "已完成",
+        "已停止"
+      ]
+    },
+    {
+      "id": "b-design-deep-thinking-p02-01",
+      "label": "深度思考 · 已完成",
+      "url": "/spec-snippets/b-design/b-design-deep-thinking-p02-01.png",
+      "source": "深度思考.pdf#page=2",
+      "width": 861,
+      "height": 904,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "深度思考",
+        "思考中",
+        "已完成思考",
+        "已停止思考",
+        "已完成",
+        "收起状态"
+      ]
+    },
+    {
+      "id": "b-design-deep-thinking-p03-01",
+      "label": "深度思考 · 组件交互",
+      "url": "/spec-snippets/b-design/b-design-deep-thinking-p03-01.png",
+      "source": "深度思考.pdf#page=3",
+      "width": 862,
+      "height": 391,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "深度思考",
+        "思考中",
+        "已完成思考",
+        "已停止思考",
+        "组件交互",
+        "已生成",
+        "已完成",
+        "已停止"
+      ]
+    },
+    {
+      "id": "b-design-deep-thinking-p03-02",
+      "label": "深度思考 · 组件交互",
+      "url": "/spec-snippets/b-design/b-design-deep-thinking-p03-02.png",
+      "source": "深度思考.pdf#page=3",
+      "width": 850,
+      "height": 381,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "深度思考",
+        "思考中",
+        "已完成思考",
+        "已停止思考",
+        "组件交互",
+        "已生成",
+        "已完成",
+        "已停止"
+      ]
+    },
+    {
+      "id": "b-design-deep-thinking-p04-01",
+      "label": "深度思考 · 窄屏适配",
+      "url": "/spec-snippets/b-design/b-design-deep-thinking-p04-01.png",
+      "source": "深度思考.pdf#page=4",
+      "width": 893,
+      "height": 822,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "深度思考",
+        "思考中",
+        "已完成思考",
+        "已停止思考",
+        "窄屏适配"
+      ]
+    },
+    {
+      "id": "b-design-deep-thinking-p05-01",
+      "label": "深度思考 · 规范示意图",
+      "url": "/spec-snippets/b-design/b-design-deep-thinking-p05-01.png",
+      "source": "深度思考.pdf#page=5",
+      "width": 351,
+      "height": 816,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "深度思考",
+        "思考中",
+        "已完成思考",
+        "已停止思考",
+        "规范示意图"
+      ]
+    },
+    {
+      "id": "b-design-status-bar-p01-01",
+      "label": "状态栏 · 何时使用",
+      "url": "/spec-snippets/b-design/b-design-status-bar-p01-01.png",
+      "source": "状态栏.pdf#page=1",
+      "width": 1118,
+      "height": 304,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "状态栏",
+        "底部状态栏",
+        "任务进度",
+        "终止按钮",
+        "进度条",
+        "何时使用"
+      ]
+    },
+    {
+      "id": "b-design-status-bar-p01-02",
+      "label": "状态栏 · 何时使用",
+      "url": "/spec-snippets/b-design/b-design-status-bar-p01-02.png",
+      "source": "状态栏.pdf#page=1",
+      "width": 1091,
+      "height": 202,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "状态栏",
+        "底部状态栏",
+        "任务进度",
+        "终止按钮",
+        "进度条",
+        "何时使用"
+      ]
+    },
+    {
+      "id": "b-design-status-bar-p02-01",
+      "label": "状态栏 · 纯信息展示",
+      "url": "/spec-snippets/b-design/b-design-status-bar-p02-01.png",
+      "source": "状态栏.pdf#page=2",
+      "width": 760,
+      "height": 66,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "状态栏",
+        "底部状态栏",
+        "任务进度",
+        "终止按钮",
+        "进度条",
+        "纯信息展示"
+      ]
+    },
+    {
+      "id": "b-design-status-bar-p02-02",
+      "label": "状态栏 · 纯信息展示",
+      "url": "/spec-snippets/b-design/b-design-status-bar-p02-02.png",
+      "source": "状态栏.pdf#page=2",
+      "width": 761,
+      "height": 64,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "状态栏",
+        "底部状态栏",
+        "任务进度",
+        "终止按钮",
+        "进度条",
+        "纯信息展示"
+      ]
+    },
+    {
+      "id": "b-design-status-bar-p02-03",
+      "label": "状态栏 · 纯信息展示",
+      "url": "/spec-snippets/b-design/b-design-status-bar-p02-03.png",
+      "source": "状态栏.pdf#page=2",
+      "width": 757,
+      "height": 62,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "状态栏",
+        "底部状态栏",
+        "任务进度",
+        "终止按钮",
+        "进度条",
+        "纯信息展示"
+      ]
+    },
+    {
+      "id": "b-design-status-bar-p02-04",
+      "label": "状态栏 · 纯信息展示",
+      "url": "/spec-snippets/b-design/b-design-status-bar-p02-04.png",
+      "source": "状态栏.pdf#page=2",
+      "width": 756,
+      "height": 62,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "状态栏",
+        "底部状态栏",
+        "任务进度",
+        "终止按钮",
+        "进度条",
+        "纯信息展示"
+      ]
+    },
+    {
+      "id": "b-design-status-bar-p02-05",
+      "label": "状态栏 · 纯信息展示",
+      "url": "/spec-snippets/b-design/b-design-status-bar-p02-05.png",
+      "source": "状态栏.pdf#page=2",
+      "width": 757,
+      "height": 63,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "状态栏",
+        "底部状态栏",
+        "任务进度",
+        "终止按钮",
+        "进度条",
+        "纯信息展示"
+      ]
+    },
+    {
+      "id": "b-design-status-bar-p02-06",
+      "label": "状态栏 · 纯信息展示",
+      "url": "/spec-snippets/b-design/b-design-status-bar-p02-06.png",
+      "source": "状态栏.pdf#page=2",
+      "width": 759,
+      "height": 62,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "状态栏",
+        "底部状态栏",
+        "任务进度",
+        "终止按钮",
+        "进度条",
+        "纯信息展示"
+      ]
+    },
+    {
+      "id": "b-design-status-bar-p02-07",
+      "label": "状态栏 · 纯信息展示",
+      "url": "/spec-snippets/b-design/b-design-status-bar-p02-07.png",
+      "source": "状态栏.pdf#page=2",
+      "width": 757,
+      "height": 63,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "状态栏",
+        "底部状态栏",
+        "任务进度",
+        "终止按钮",
+        "进度条",
+        "纯信息展示"
+      ]
+    },
+    {
+      "id": "b-design-status-bar-p03-01",
+      "label": "状态栏 · 开启新任务操作",
+      "url": "/spec-snippets/b-design/b-design-status-bar-p03-01.png",
+      "source": "状态栏.pdf#page=3",
+      "width": 770,
+      "height": 167,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "状态栏",
+        "底部状态栏",
+        "任务进度",
+        "终止按钮",
+        "进度条",
+        "开启新任务操作"
+      ]
+    },
+    {
+      "id": "b-design-status-bar-p03-02",
+      "label": "状态栏 · 开启新任务操作",
+      "url": "/spec-snippets/b-design/b-design-status-bar-p03-02.png",
+      "source": "状态栏.pdf#page=3",
+      "width": 464,
+      "height": 99,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "状态栏",
+        "底部状态栏",
+        "任务进度",
+        "终止按钮",
+        "进度条",
+        "开启新任务操作"
+      ]
+    },
+    {
+      "id": "b-design-status-bar-p03-03",
+      "label": "状态栏 · 开启新任务操作",
+      "url": "/spec-snippets/b-design/b-design-status-bar-p03-03.png",
+      "source": "状态栏.pdf#page=3",
+      "width": 807,
+      "height": 565,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "状态栏",
+        "底部状态栏",
+        "任务进度",
+        "终止按钮",
+        "进度条",
+        "开启新任务操作"
+      ]
+    },
+    {
+      "id": "b-design-generating-card-code-p01-01",
+      "label": "生成中卡片-代码 · 组件构成",
+      "url": "/spec-snippets/b-design/b-design-generating-card-code-p01-01.png",
+      "source": "生成中卡片-代码.pdf#page=1",
+      "width": 1062,
+      "height": 883,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "生成中卡片-代码",
+        "代码",
+        "代码运行",
+        "待确认状态",
+        "组件构成",
+        "组件状态",
+        "生成中"
+      ]
+    },
+    {
+      "id": "b-design-generating-card-code-p02-01",
+      "label": "生成中卡片-代码 · 待确认状态",
+      "url": "/spec-snippets/b-design/b-design-generating-card-code-p02-01.png",
+      "source": "生成中卡片-代码.pdf#page=2",
+      "width": 962,
+      "height": 395,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "生成中卡片-代码",
+        "代码",
+        "代码运行",
+        "待确认状态",
+        "已确认状态",
+        "收起状态"
+      ]
+    },
+    {
+      "id": "b-design-generating-card-code-p02-02",
+      "label": "生成中卡片-代码 · 待确认状态",
+      "url": "/spec-snippets/b-design/b-design-generating-card-code-p02-02.png",
+      "source": "生成中卡片-代码.pdf#page=2",
+      "width": 967,
+      "height": 517,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "生成中卡片-代码",
+        "代码",
+        "代码运行",
+        "待确认状态",
+        "已确认状态",
+        "收起状态"
+      ]
+    },
+    {
+      "id": "b-design-generating-card-code-p02-03",
+      "label": "生成中卡片-代码 · 待确认状态",
+      "url": "/spec-snippets/b-design/b-design-generating-card-code-p02-03.png",
+      "source": "生成中卡片-代码.pdf#page=2",
+      "width": 452,
+      "height": 139,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "生成中卡片-代码",
+        "代码",
+        "代码运行",
+        "待确认状态",
+        "已确认状态",
+        "收起状态"
+      ]
+    },
+    {
+      "id": "b-design-generating-card-product-p01-01",
+      "label": "生成中卡片-商品卡 · 组件构成",
+      "url": "/spec-snippets/b-design/b-design-generating-card-product-p01-01.png",
+      "source": "生成中卡片-商品卡.pdf#page=1",
+      "width": 802,
+      "height": 676,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "生成中卡片-商品卡",
+        "商品卡",
+        "商卡",
+        "查看全部",
+        "组件构成",
+        "生成中"
+      ]
+    },
+    {
+      "id": "b-design-generating-card-product-p03-01",
+      "label": "生成中卡片-商品卡 · 已确认状态",
+      "url": "/spec-snippets/b-design/b-design-generating-card-product-p03-01.png",
+      "source": "生成中卡片-商品卡.pdf#page=3",
+      "width": 756,
+      "height": 450,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "生成中卡片-商品卡",
+        "商品卡",
+        "商卡",
+        "查看全部",
+        "已确认状态"
+      ]
+    },
+    {
+      "id": "b-design-generating-card-product-p04-01",
+      "label": "生成中卡片-商品卡 · 收起状态",
+      "url": "/spec-snippets/b-design/b-design-generating-card-product-p04-01.png",
+      "source": "生成中卡片-商品卡.pdf#page=4",
+      "width": 756,
+      "height": 452,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "生成中卡片-商品卡",
+        "商品卡",
+        "商卡",
+        "查看全部",
+        "收起状态"
+      ]
+    },
+    {
+      "id": "b-design-generating-card-product-p04-02",
+      "label": "生成中卡片-商品卡 · 收起状态",
+      "url": "/spec-snippets/b-design/b-design-generating-card-product-p04-02.png",
+      "source": "生成中卡片-商品卡.pdf#page=4",
+      "width": 686,
+      "height": 119,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "生成中卡片-商品卡",
+        "商品卡",
+        "商卡",
+        "查看全部",
+        "收起状态"
+      ]
+    },
+    {
+      "id": "b-design-generating-card-image-p01-01",
+      "label": "生成中卡片-图片 · 组件构成",
+      "url": "/spec-snippets/b-design/b-design-generating-card-image-p01-01.png",
+      "source": "生成中卡片-图片.pdf#page=1",
+      "width": 906,
+      "height": 669,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "生成中卡片-图片",
+        "图片生成",
+        "生成图片",
+        "查看全部",
+        "组件构成",
+        "生成中"
+      ]
+    },
+    {
+      "id": "b-design-generating-card-image-p02-01",
+      "label": "生成中卡片-图片 · 组件状态",
+      "url": "/spec-snippets/b-design/b-design-generating-card-image-p02-01.png",
+      "source": "生成中卡片-图片.pdf#page=2",
+      "width": 618,
+      "height": 309,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "生成中卡片-图片",
+        "图片生成",
+        "生成图片",
+        "查看全部",
+        "组件状态",
+        "待确认状态",
+        "已确认状态"
+      ]
+    },
+    {
+      "id": "b-design-generating-card-image-p03-01",
+      "label": "生成中卡片-图片 · 收起状态",
+      "url": "/spec-snippets/b-design/b-design-generating-card-image-p03-01.png",
+      "source": "生成中卡片-图片.pdf#page=3",
+      "width": 800,
+      "height": 331,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "生成中卡片-图片",
+        "图片生成",
+        "生成图片",
+        "查看全部",
+        "收起状态"
+      ]
+    },
+    {
+      "id": "b-design-generating-card-image-p03-02",
+      "label": "生成中卡片-图片 · 收起状态",
+      "url": "/spec-snippets/b-design/b-design-generating-card-image-p03-02.png",
+      "source": "生成中卡片-图片.pdf#page=3",
+      "width": 724,
+      "height": 110,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "生成中卡片-图片",
+        "图片生成",
+        "生成图片",
+        "查看全部",
+        "收起状态"
+      ]
+    },
+    {
+      "id": "b-design-generating-card-file-p01-01",
+      "label": "生成中卡片-文件 · 组件构成",
+      "url": "/spec-snippets/b-design/b-design-generating-card-file-p01-01.png",
+      "source": "生成中卡片-文件.pdf#page=1",
+      "width": 986,
+      "height": 490,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "生成中卡片-文件",
+        "文件确认",
+        "文件列表",
+        "文件交互",
+        "组件构成",
+        "组件状态",
+        "待确认状态",
+        "生成中"
+      ]
+    },
+    {
+      "id": "b-design-generating-card-file-p02-01",
+      "label": "生成中卡片-文件 · 已确认状态",
+      "url": "/spec-snippets/b-design/b-design-generating-card-file-p02-01.png",
+      "source": "生成中卡片-文件.pdf#page=2",
+      "width": 892,
+      "height": 277,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "生成中卡片-文件",
+        "文件确认",
+        "文件列表",
+        "文件交互",
+        "已确认状态",
+        "收起状态"
+      ]
+    },
+    {
+      "id": "b-design-generating-card-file-p02-02",
+      "label": "生成中卡片-文件 · 已确认状态",
+      "url": "/spec-snippets/b-design/b-design-generating-card-file-p02-02.png",
+      "source": "生成中卡片-文件.pdf#page=2",
+      "width": 889,
+      "height": 388,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "生成中卡片-文件",
+        "文件确认",
+        "文件列表",
+        "文件交互",
+        "已确认状态",
+        "收起状态"
+      ]
+    },
+    {
+      "id": "b-design-generating-card-file-p02-03",
+      "label": "生成中卡片-文件 · 已确认状态",
+      "url": "/spec-snippets/b-design/b-design-generating-card-file-p02-03.png",
+      "source": "生成中卡片-文件.pdf#page=2",
+      "width": 940,
+      "height": 138,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "生成中卡片-文件",
+        "文件确认",
+        "文件列表",
+        "文件交互",
+        "已确认状态",
+        "收起状态"
+      ]
+    },
+    {
+      "id": "b-design-generating-card-file-p02-04",
+      "label": "生成中卡片-文件 · 已确认状态",
+      "url": "/spec-snippets/b-design/b-design-generating-card-file-p02-04.png",
+      "source": "生成中卡片-文件.pdf#page=2",
+      "width": 784,
+      "height": 119,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "生成中卡片-文件",
+        "文件确认",
+        "文件列表",
+        "文件交互",
+        "已确认状态",
+        "收起状态"
+      ]
+    },
+    {
+      "id": "b-design-generating-card-form-p01-01",
+      "label": "生成中卡片-表单 · 组件构成",
+      "url": "/spec-snippets/b-design/b-design-generating-card-form-p01-01.png",
+      "source": "生成中卡片-表单.pdf#page=1",
+      "width": 851,
+      "height": 565,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "生成中卡片-表单",
+        "表单",
+        "单选",
+        "多选",
+        "自定义可编辑",
+        "组件构成",
+        "生成中"
+      ]
+    },
+    {
+      "id": "b-design-generating-card-form-p02-01",
+      "label": "生成中卡片-表单 · 组件状态",
+      "url": "/spec-snippets/b-design/b-design-generating-card-form-p02-01.png",
+      "source": "生成中卡片-表单.pdf#page=2",
+      "width": 772,
+      "height": 348,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "生成中卡片-表单",
+        "表单",
+        "单选",
+        "多选",
+        "自定义可编辑",
+        "组件状态",
+        "待确认状态",
+        "已确认状态"
+      ]
+    },
+    {
+      "id": "b-design-generating-card-form-p03-01",
+      "label": "生成中卡片-表单 · 组件交互",
+      "url": "/spec-snippets/b-design/b-design-generating-card-form-p03-01.png",
+      "source": "生成中卡片-表单.pdf#page=3",
+      "width": 768,
+      "height": 341,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "生成中卡片-表单",
+        "表单",
+        "单选",
+        "多选",
+        "自定义可编辑",
+        "组件交互"
+      ]
+    },
+    {
+      "id": "b-design-generating-card-form-p04-01",
+      "label": "生成中卡片-表单 · 规范示意图",
+      "url": "/spec-snippets/b-design/b-design-generating-card-form-p04-01.png",
+      "source": "生成中卡片-表单.pdf#page=4",
+      "width": 678,
+      "height": 1041,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "生成中卡片-表单",
+        "表单",
+        "单选",
+        "多选",
+        "自定义可编辑",
+        "规范示意图"
+      ]
+    },
+    {
+      "id": "b-design-generating-card-form-p05-01",
+      "label": "生成中卡片-表单 · 收起状态",
+      "url": "/spec-snippets/b-design/b-design-generating-card-form-p05-01.png",
+      "source": "生成中卡片-表单.pdf#page=5",
+      "width": 678,
+      "height": 1041,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "生成中卡片-表单",
+        "表单",
+        "单选",
+        "多选",
+        "自定义可编辑",
+        "收起状态"
+      ]
+    },
+    {
+      "id": "b-design-generating-card-form-p05-02",
+      "label": "生成中卡片-表单 · 收起状态",
+      "url": "/spec-snippets/b-design/b-design-generating-card-form-p05-02.png",
+      "source": "生成中卡片-表单.pdf#page=5",
+      "width": 318,
+      "height": 98,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "生成中卡片-表单",
+        "表单",
+        "单选",
+        "多选",
+        "自定义可编辑",
+        "收起状态"
+      ]
+    },
+    {
+      "id": "b-design-generating-card-table-p01-01",
+      "label": "生成中卡片-表格 · 组件构成",
+      "url": "/spec-snippets/b-design/b-design-generating-card-table-p01-01.png",
+      "source": "生成中卡片-表格.pdf#page=1",
+      "width": 1068,
+      "height": 885,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "生成中卡片-表格",
+        "表格",
+        "列表",
+        "超过10条",
+        "组件构成",
+        "组件状态",
+        "生成中"
+      ]
+    },
+    {
+      "id": "b-design-generating-card-table-p02-01",
+      "label": "生成中卡片-表格 · 待确认状态",
+      "url": "/spec-snippets/b-design/b-design-generating-card-table-p02-01.png",
+      "source": "生成中卡片-表格.pdf#page=2",
+      "width": 974,
+      "height": 595,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "生成中卡片-表格",
+        "表格",
+        "列表",
+        "超过10条",
+        "待确认状态",
+        "已确认状态",
+        "收起状态"
+      ]
+    },
+    {
+      "id": "b-design-generating-card-table-p02-02",
+      "label": "生成中卡片-表格 · 待确认状态",
+      "url": "/spec-snippets/b-design/b-design-generating-card-table-p02-02.png",
+      "source": "生成中卡片-表格.pdf#page=2",
+      "width": 972,
+      "height": 595,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "生成中卡片-表格",
+        "表格",
+        "列表",
+        "超过10条",
+        "待确认状态",
+        "已确认状态",
+        "收起状态"
+      ]
+    },
+    {
+      "id": "b-design-generating-card-table-p03-01",
+      "label": "生成中卡片-表格 · 规范示意图",
+      "url": "/spec-snippets/b-design/b-design-generating-card-table-p03-01.png",
+      "source": "生成中卡片-表格.pdf#page=3",
+      "width": 858,
+      "height": 146,
+      "keywords": [
+        "B-design",
+        "Agent 组件规范",
+        "生成中卡片-表格",
+        "表格",
+        "列表",
+        "超过10条",
+        "规范示意图"
+      ]
+    }
+  ]
+}

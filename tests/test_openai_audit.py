@@ -3,11 +3,17 @@ import json
 import pytest
 from PIL import Image
 
-from app.prompt_builder import PROMPT_VERSION, SCHEMA_VERSION
+from app.prompt_builder import (
+    B_DESIGN_PROMPT_VERSION,
+    B_DESIGN_SCHEMA_VERSION,
+    PROMPT_VERSION,
+    SCHEMA_VERSION,
+)
 from app.openai_audit import (
     AuditModelError,
     audit_image_with_chat,
     audit_image_with_chat_light,
+    audit_image_with_kimi_light,
     audit_image,
     audit_json_schema,
     build_audit_prompt,
@@ -171,6 +177,35 @@ def test_parse_audit_json_can_fill_missing_arrays_for_chat_models():
     assert result["passes"] == []
     assert result["sample_points"] == []
     assert result["checklist"] == []
+
+
+def test_parse_audit_json_preserves_b_design_rule_source_fields():
+    result = parse_lenient_chat_audit_json(
+        json.dumps(
+            {
+                "screen_context": "标题优化页面",
+                "overall_conclusion": "模型已完成审核。",
+                "issues": [
+                    {
+                        "id": "button-order-01",
+                        "category": "按钮顺序",
+                        "severity": "warning",
+                        "location": "底部操作区",
+                        "current_observation": "取消在左，预览确认在右。",
+                        "spec_expectation": "alpha 案例要求确认动作在左、取消动作在右。",
+                        "recommendation": "调整为预览确认在左、取消在右。",
+                        "rule_source_type": "alpha_case",
+                        "rule_source_ref": "references/alpha/image.png_NDR-SQ 1.png",
+                    }
+                ],
+            },
+            ensure_ascii=False,
+        ),
+        audit_spec_label="京东 B 端设计规范（B-design Agent 组件规范）",
+    )
+
+    assert result["issues"][0]["rule_source_type"] == "alpha_case"
+    assert result["issues"][0]["rule_source_ref"] == "references/alpha/image.png_NDR-SQ 1.png"
 
 
 def test_parse_audit_json_normalizes_chat_category_payloads():
@@ -405,6 +440,28 @@ def test_parse_audit_json_promotes_failed_checklist_to_issues():
     assert result["major_issues"] == ["绿色 off-token"]
 
 
+def test_lenient_parse_uses_selected_spec_label_for_generic_b_design_conclusion():
+    result = parse_lenient_chat_audit_json(
+        """
+        {
+          "screen_context": "Agent 任务页",
+          "overall_conclusion": "fail",
+          "issues": [
+            {
+              "category": "任务规划",
+              "location": "任务规划卡片",
+              "description": "缺少展开收起按钮"
+            }
+          ]
+        }
+        """,
+        audit_spec_label="京东 B 端设计规范（B-design Agent 组件规范）",
+    )
+
+    assert result["overall_conclusion"] == "存在不符合京东 B 端设计规范（B-design Agent 组件规范）的问题。"
+    assert result["issues"][0]["recommendation"] == "请按京东 B 端设计规范（B-design Agent 组件规范）调整。"
+
+
 def test_parse_audit_json_localizes_common_english_chat_output():
     result = parse_audit_json(
         json.dumps(
@@ -522,6 +579,15 @@ def test_audit_json_schema_has_strict_nested_objects():
         assert item_schema["required"] == list(item_schema["properties"])
 
 
+def test_audit_json_schema_allows_rule_source_metadata_on_issues():
+    issue_schema = audit_json_schema()["schema"]["properties"]["issues"]["items"]
+
+    assert "rule_source_type" in issue_schema["properties"]
+    assert "rule_source_ref" in issue_schema["properties"]
+    assert "rule_source_type" in issue_schema["required"]
+    assert "rule_source_ref" in issue_schema["required"]
+
+
 def test_audit_image_calls_responses_api_with_schema_and_data_url(tmp_path):
     image_path = tmp_path / "screen.png"
     Image.new("RGB", (2, 2), color=(107, 54, 250)).save(image_path)
@@ -558,6 +624,78 @@ def test_audit_image_calls_responses_api_with_schema_and_data_url(tmp_path):
     assert content[1]["image_url"].startswith("data:image/png;base64,")
     assert client.responses.kwargs["text"]["format"]["type"] == "json_schema"
     assert "reasoning" not in client.responses.kwargs
+
+
+def test_audit_image_uses_b_design_metadata_without_jm_ai_prompt_labels(tmp_path):
+    image_path = tmp_path / "screen.png"
+    Image.new("RGB", (2, 2), color=(107, 54, 250)).save(image_path)
+    payload = _valid_payload()
+    spec_text = """# B-design Agent 组件规范
+
+## 通用审核原则
+只能依据 B-design PDF 内容。
+
+## 数据收集
+数据收集组件必须清晰展示上传和收集状态。
+
+## 任务节点
+任务节点组件必须展示一级节点和二级节点。
+"""
+    applicability = {
+        "screen_context": "上传文件页面",
+        "applicability": "weak",
+        "matched_components": [
+            {
+                "component_id": "data-collection",
+                "component_name": "数据收集",
+                "confidence": 0.58,
+                "applicability": "weak",
+                "evidence": "截图中有上传文件区域。",
+            }
+        ],
+        "reason": "命中数据收集候选组件。",
+        "cannot_verify": [],
+    }
+
+    class FakeResponses:
+        def __init__(self):
+            self.calls = []
+
+        def create(self, **kwargs):
+            self.calls.append(kwargs)
+            output = applicability if len(self.calls) == 1 else payload
+
+            class Response:
+                output_text = json.dumps(output, ensure_ascii=False)
+
+            return Response()
+
+    class FakeClient:
+        def __init__(self):
+            self.responses = FakeResponses()
+
+    client = FakeClient()
+
+    result = audit_image(
+        client,
+        "test-model",
+        image_path,
+        spec_text,
+        audit_spec_label="京东 B 端设计规范（B-design Agent 组件规范）",
+    )
+
+    routing_prompt = client.responses.calls[0]["input"][0]["content"][0]["text"]
+    prompt = client.responses.calls[1]["input"][0]["content"][0]["text"]
+    assert result["prompt_version"] == B_DESIGN_PROMPT_VERSION
+    assert result["schema_version"] == B_DESIGN_SCHEMA_VERSION
+    assert result["loaded_spec_sections"] == ["通用审核原则", "数据收集"]
+    assert "适用性识别" in routing_prompt
+    assert B_DESIGN_PROMPT_VERSION in prompt
+    assert "数据收集组件必须清晰展示上传和收集状态" in prompt
+    assert "任务节点组件必须展示一级节点和二级节点" not in prompt
+    assert PROMPT_VERSION not in prompt
+    assert SCHEMA_VERSION not in prompt
+    assert "JM AI" not in prompt
 
 
 def test_audit_image_passes_reasoning_effort_when_configured(tmp_path):
@@ -791,10 +929,268 @@ def test_audit_image_with_chat_light_uses_compact_prompt_and_output_budget(tmp_p
     assert result["schema_version"] == SCHEMA_VERSION
     kwargs = client.chat.completions.kwargs
     prompt = kwargs["messages"][0]["content"][0]["text"]
-    assert kwargs["max_tokens"] == 4096
+    assert kwargs["max_tokens"] == 8192
     assert "轻量审核" in prompt
     assert "VERY LONG SPEC" not in prompt
     assert "最多输出 8 个" in prompt
+
+
+def test_audit_image_with_chat_light_routes_b_design_to_matched_sections(tmp_path):
+    image_path = tmp_path / "screen.png"
+    Image.new("RGB", (2, 2), color=(107, 54, 250)).save(image_path)
+    payload = _valid_payload()
+    applicability = {
+        "screen_context": "上传文件页面",
+        "applicability": "weak",
+        "matched_components": [
+            {
+                "component_id": "data-collection",
+                "component_name": "数据收集",
+                "confidence": 0.55,
+                "applicability": "weak",
+                "evidence": "截图中出现上传文件区域。",
+            }
+        ],
+        "reason": "命中数据收集候选组件。",
+        "cannot_verify": [],
+    }
+    spec_text = """# B-design Agent 组件规范
+
+## 通用审核原则
+只能依据 B-design PDF 内容。
+
+## 数据收集
+数据收集组件必须清晰展示上传、收集进度和停止状态。
+
+## 任务节点
+任务节点组件必须展示一级节点和二级节点。
+"""
+
+    class FakeCompletions:
+        def __init__(self):
+            self.calls = []
+
+        def create(self, **kwargs):
+            self.calls.append(kwargs)
+            output = applicability if len(self.calls) == 1 else payload
+
+            class Message:
+                content = json.dumps(output, ensure_ascii=False)
+
+            class Choice:
+                message = Message()
+
+            class Response:
+                choices = [Choice()]
+
+            return Response()
+
+    class FakeChat:
+        def __init__(self):
+            self.completions = FakeCompletions()
+
+    class FakeClient:
+        def __init__(self):
+            self.chat = FakeChat()
+
+    client = FakeClient()
+
+    result = audit_image_with_chat_light(
+        client,
+        "jd-model",
+        image_path,
+        spec_text,
+        audit_spec_label="京东 B 端设计规范（B-design Agent 组件规范）",
+    )
+
+    calls = client.chat.completions.calls
+    routing_prompt = calls[0]["messages"][0]["content"][0]["text"]
+    audit_prompt = calls[1]["messages"][0]["content"][0]["text"]
+    assert calls[0]["max_tokens"] == 4096
+    assert calls[1]["max_tokens"] == 8192
+    assert "适用性识别" in routing_prompt
+    assert "数据收集组件必须清晰展示上传、收集进度和停止状态" in audit_prompt
+    assert "任务节点组件必须展示一级节点和二级节点" not in audit_prompt
+    assert "不要输出通用 B 端界面风险" in audit_prompt
+    assert result["prompt_version"] == B_DESIGN_PROMPT_VERSION
+    assert result["schema_version"] == B_DESIGN_SCHEMA_VERSION
+    assert result["loaded_spec_sections"] == ["通用审核原则", "数据收集"]
+    assert result["b_design_applicability"]["selected_component_ids"] == ["data-collection"]
+
+
+def test_audit_image_with_chat_light_routes_b_design_extension_rules(tmp_path):
+    image_path = tmp_path / "screen.png"
+    Image.new("RGB", (2, 2), color=(107, 54, 250)).save(image_path)
+    payload = _valid_payload()
+    applicability = {
+        "screen_context": "质检看板",
+        "applicability": "strong",
+        "matched_components": [
+            {
+                "component_id": "quality-dashboard",
+                "component_name": "质检/诊断/风险看板",
+                "confidence": 0.8,
+                "applicability": "strong",
+                "evidence": "截图中出现诊断卡片和风险列表。",
+            }
+        ],
+        "reason": "命中 alpha 案例沉淀场景。",
+        "cannot_verify": [],
+    }
+    spec_text = """# B-design Agent 组件规范
+
+## 通用审核原则
+只能依据 B-design 规则来源。
+
+## 数据收集
+数据收集组件必须清晰展示上传、收集进度和停止状态。
+
+## 扩展审核规则
+alpha 案例沉淀规则要求：非 AI 功能不要使用紫色，禁用无依据 emoji。
+"""
+
+    class FakeCompletions:
+        def __init__(self):
+            self.calls = []
+
+        def create(self, **kwargs):
+            self.calls.append(kwargs)
+            output = applicability if len(self.calls) == 1 else payload
+
+            class Message:
+                content = json.dumps(output, ensure_ascii=False)
+
+            class Choice:
+                message = Message()
+
+            class Response:
+                choices = [Choice()]
+
+            return Response()
+
+    class FakeChat:
+        def __init__(self):
+            self.completions = FakeCompletions()
+
+    class FakeClient:
+        def __init__(self):
+            self.chat = FakeChat()
+
+    client = FakeClient()
+
+    result = audit_image_with_chat_light(
+        client,
+        "jd-model",
+        image_path,
+        spec_text,
+        audit_spec_label="京东 B 端设计规范（B-design Agent 组件规范）",
+    )
+
+    audit_prompt = client.chat.completions.calls[1]["messages"][0]["content"][0]["text"]
+    assert "alpha 案例沉淀规则要求" in audit_prompt
+    assert "数据收集组件必须清晰展示" not in audit_prompt
+    assert result["loaded_spec_sections"] == ["通用审核原则", "扩展审核规则"]
+    assert result["loaded_spec_components"] == ["质检/诊断/风险看板"]
+    assert result["b_design_applicability"]["selected_component_ids"] == ["quality-dashboard"]
+    assert result["b_design_applicability"]["matched_components"][0]["source_type"] == "alpha_case"
+
+
+def test_audit_image_with_chat_light_returns_not_applicable_for_unmatched_b_design(tmp_path):
+    image_path = tmp_path / "screen.png"
+    Image.new("RGB", (2, 2), color=(107, 54, 250)).save(image_path)
+    applicability = {
+        "screen_context": "普通表单页面",
+        "applicability": "none",
+        "matched_components": [],
+        "reason": "未出现 B-design 覆盖组件或扩展规则场景。",
+        "cannot_verify": [],
+    }
+
+    class FakeCompletions:
+        def __init__(self):
+            self.calls = []
+
+        def create(self, **kwargs):
+            self.calls.append(kwargs)
+
+            class Message:
+                content = json.dumps(applicability, ensure_ascii=False)
+
+            class Choice:
+                message = Message()
+
+            class Response:
+                choices = [Choice()]
+
+            return Response()
+
+    class FakeChat:
+        def __init__(self):
+            self.completions = FakeCompletions()
+
+    class FakeClient:
+        def __init__(self):
+            self.chat = FakeChat()
+
+    client = FakeClient()
+
+    result = audit_image_with_chat_light(
+        client,
+        "jd-model",
+        image_path,
+        "SHOULD NOT BE LOADED",
+        audit_spec_label="京东 B 端设计规范（B-design Agent 组件规范）",
+    )
+
+    assert len(client.chat.completions.calls) == 1
+    assert result["issues"] == []
+    assert result["loaded_spec_sections"] == []
+    assert result["overall_conclusion"] == "未命中 B-design 规范覆盖范围；本次不输出规范违规问题。"
+    assert "通用" not in result["overall_conclusion"]
+
+
+def test_audit_image_with_kimi_light_uses_kimi_compact_prompt_and_budget(tmp_path):
+    image_path = tmp_path / "screen.png"
+    Image.new("RGB", (2, 2), color=(107, 54, 250)).save(image_path)
+    payload = _valid_payload()
+
+    class FakeCompletions:
+        def __init__(self):
+            self.kwargs = None
+
+        def create(self, **kwargs):
+            self.kwargs = kwargs
+
+            class Message:
+                content = json.dumps(payload, ensure_ascii=False)
+
+            class Choice:
+                message = Message()
+
+            class Response:
+                choices = [Choice()]
+
+            return Response()
+
+    class FakeChat:
+        def __init__(self):
+            self.completions = FakeCompletions()
+
+    class FakeClient:
+        def __init__(self):
+            self.chat = FakeChat()
+
+    client = FakeClient()
+
+    result = audit_image_with_kimi_light(client, "Kimi-K2.6", image_path, "VERY LONG SPEC")
+
+    assert {key: result[key] for key in payload} == payload
+    kwargs = client.chat.completions.kwargs
+    prompt = kwargs["messages"][0]["content"][0]["text"]
+    assert kwargs["max_tokens"] == 16384
+    assert "禁止输出思考过程" in prompt
+    assert "最多输出 5 个" in prompt
+    assert "VERY LONG SPEC" not in prompt
 
 
 def test_audit_image_with_chat_rejects_empty_message_content(tmp_path):
@@ -832,3 +1228,45 @@ def test_audit_image_with_chat_rejects_empty_message_content(tmp_path):
         assert "finish_reason=length" in message
     else:
         raise AssertionError("empty chat content should fail with AuditModelError")
+
+
+def test_b_design_applicability_failure_includes_finish_reason(tmp_path):
+    image_path = tmp_path / "screen.png"
+    Image.new("RGB", (2, 2), color=(107, 54, 250)).save(image_path)
+
+    class FakeCompletions:
+        def create(self, **kwargs):
+            class Message:
+                content = None
+
+            class Choice:
+                message = Message()
+                finish_reason = "length"
+
+            class Response:
+                choices = [Choice()]
+
+            return Response()
+
+    class FakeChat:
+        def __init__(self):
+            self.completions = FakeCompletions()
+
+    class FakeClient:
+        def __init__(self):
+            self.chat = FakeChat()
+
+    try:
+        audit_image_with_chat_light(
+            FakeClient(),
+            "Kimi-K2.6",
+            image_path,
+            "SPEC",
+            audit_spec_label="京东 B 端设计规范（B-design Agent 组件规范）",
+        )
+    except AuditModelError as exc:
+        message = str(exc)
+        assert "B-design 适用性识别没有返回 JSON 内容" in message
+        assert "finish_reason=length" in message
+    else:
+        raise AssertionError("empty applicability content should include finish_reason")

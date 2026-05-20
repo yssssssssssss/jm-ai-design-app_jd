@@ -534,6 +534,80 @@ def test_init_db_migrates_v2_tasks_to_screen_size_columns(tmp_path):
     assert conn.execute("pragma user_version").fetchone()[0] == SCHEMA_VERSION
 
 
+def test_init_db_migrates_v3_tasks_to_audit_spec_id(tmp_path):
+    conn = connect(tmp_path / "app.db")
+    conn.executescript(
+        """
+        pragma user_version = 3;
+
+        create table users (
+          id integer primary key autoincrement,
+          username text not null unique,
+          password_hash text not null,
+          role text not null check (role in ('admin', 'user')),
+          status text not null default 'active' check (status in ('active', 'disabled')),
+          created_at text not null default current_timestamp,
+          last_login_at text
+        );
+
+        create table tasks (
+          id integer primary key autoincrement,
+          owner_id integer not null references users(id),
+          title text not null,
+          status text not null check (status in ('queued', 'running', 'succeeded', 'failed')),
+          image_count integer not null check (image_count > 0),
+          screen_width_px integer check (screen_width_px is null or screen_width_px > 0),
+          screen_height_px integer check (screen_height_px is null or screen_height_px > 0),
+          summary text,
+          report_path text,
+          error_message text,
+          created_at text not null default current_timestamp,
+          updated_at text not null default current_timestamp,
+          completed_at text
+        );
+
+        create table task_images (
+          id integer primary key autoincrement,
+          task_id integer not null references tasks(id) on delete cascade,
+          filename text not null,
+          original_path text not null,
+          annotated_path text,
+          tokens_path text,
+          measurements_path text,
+          issues_path text,
+          audit_json_path text,
+          sort_order integer not null,
+          status text not null check (status in ('queued', 'running', 'succeeded', 'failed')),
+          error_message text,
+          unique(task_id, sort_order)
+        );
+
+        create table task_report_reads (
+          user_id integer not null references users(id) on delete cascade,
+          task_id integer not null references tasks(id) on delete cascade,
+          read_at text not null default current_timestamp,
+          primary key (user_id, task_id)
+        );
+
+        insert into users (username, password_hash, role)
+        values ('alice', 'hash-1', 'user');
+
+        insert into tasks (owner_id, title, status, image_count)
+        values (1, 'Legacy task', 'queued', 1);
+        """
+    )
+    conn.commit()
+
+    init_db(conn)
+
+    columns = {row["name"] for row in conn.execute("pragma table_info(tasks)").fetchall()}
+    task = get_task_by_id(conn, 1)
+    assert "audit_spec_id" in columns
+    assert task is not None
+    assert task.audit_spec_id == "jm-ai"
+    assert conn.execute("pragma user_version").fetchone()[0] == SCHEMA_VERSION
+
+
 def test_init_db_rejects_existing_unversioned_core_schema(tmp_path):
     conn = connect(tmp_path / "app.db")
     conn.execute("create table tasks (id integer primary key)")
@@ -616,6 +690,42 @@ def test_create_task_persists_declared_screen_size(tmp_path):
     assert refreshed is not None
     assert refreshed.screen_width_px == 1440
     assert refreshed.screen_height_px == 900
+
+
+def test_create_task_persists_audit_spec_id(tmp_path):
+    conn = connect(tmp_path / "app.db")
+    init_db(conn)
+    user = create_user(conn, "alice", "hash-1", "user")
+
+    task = create_task(
+        conn,
+        owner_id=user.id,
+        title="B-design audit",
+        image_count=1,
+        audit_spec_id="b-design",
+    )
+    refreshed = get_task_by_id(conn, task.id)
+
+    assert refreshed is not None
+    assert refreshed.audit_spec_id == "b-design"
+
+
+def test_create_task_persists_multiple_audit_spec_ids(tmp_path):
+    conn = connect(tmp_path / "app.db")
+    init_db(conn)
+    user = create_user(conn, "alice", "hash-1", "user")
+
+    task = create_task(
+        conn,
+        owner_id=user.id,
+        title="Multi spec audit",
+        image_count=1,
+        audit_spec_id=["jm-ai", "b-design"],
+    )
+    refreshed = get_task_by_id(conn, task.id)
+
+    assert refreshed is not None
+    assert refreshed.audit_spec_id == "jm-ai,b-design"
 
 
 def test_repository_timestamps_use_beijing_time(tmp_path, monkeypatch):

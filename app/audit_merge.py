@@ -54,7 +54,10 @@ GENERIC_ANCHORS = {
 }
 
 
-def merge_audits(model_audits: list[dict[str, Any]]) -> dict[str, Any]:
+def merge_audits(
+    model_audits: list[dict[str, Any]],
+    audit_spec_label: str = "JM AI 设计规范",
+) -> dict[str, Any]:
     audits = [_with_model(audit, index) for index, audit in enumerate(model_audits)]
     audits.sort(key=lambda audit: _model_index(audit["model"]))
 
@@ -79,12 +82,15 @@ def merge_audits(model_audits: list[dict[str, Any]]) -> dict[str, Any]:
     result["major_issues"] = result["major_issues"] or [
         _issue_summary(issue) for issue in final_issues if issue.get("severity") in {"高", "中"}
     ]
-    result["overall_conclusion"] = _conclusion(final_issues, comparison)
+    result["overall_conclusion"] = _conclusion(final_issues, comparison, audit_spec_label)
     result["model_comparison"] = comparison
     return result
 
 
-def merge_audit_attempts(attempts: list[dict[str, Any]]) -> dict[str, Any]:
+def merge_audit_attempts(
+    attempts: list[dict[str, Any]],
+    audit_spec_label: str = "JM AI 设计规范",
+) -> dict[str, Any]:
     audits: list[dict[str, Any]] = []
     failures: list[dict[str, Any]] = []
 
@@ -108,7 +114,7 @@ def merge_audit_attempts(attempts: list[dict[str, Any]]) -> dict[str, Any]:
             raise RuntimeError("全部模型审核失败：模型未返回有效审核内容")
         raise RuntimeError("全部模型审核失败")
 
-    result = merge_audits(audits)
+    result = merge_audits(audits, audit_spec_label=audit_spec_label)
     result["model_comparison"]["model_failures"] = failures
     if failures:
         result["overall_conclusion"] = f"单模型降级审核：{result['overall_conclusion']}"
@@ -765,17 +771,25 @@ def _checklist_from_issues(issues: list[dict[str, Any]]) -> list[dict[str, str]]
     ]
 
 
-def _conclusion(issues: list[dict[str, Any]], comparison: dict[str, Any]) -> str:
+def _conclusion(
+    issues: list[dict[str, Any]],
+    comparison: dict[str, Any],
+    audit_spec_label: str,
+) -> str:
     if not issues:
-        return "双模型审核未发现明确 JM AI 设计规范问题。"
+        return f"双模型审核未发现明确{_spec_phrase(audit_spec_label)}问题。"
     agreed_count = len(comparison["agreed_issues"])
     supplemental_count = len(comparison["gpt_only_issues"]) + len(
         comparison["kimi_only_issues"]
     )
     return (
-        f"双模型本地合并完成：共发现 {len(issues)} 个 JM AI 设计规范问题，"
+        f"双模型本地合并完成：共发现 {len(issues)} 个{_spec_phrase(audit_spec_label)}问题，"
         f"双方共同确认 {agreed_count} 个，单模型补充 {supplemental_count} 个。"
     )
+
+
+def _spec_phrase(audit_spec_label: str) -> str:
+    return f" {str(audit_spec_label or '设计规范')}"
 
 
 def _issue_summary(issue: dict[str, Any]) -> str:

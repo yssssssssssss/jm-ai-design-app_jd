@@ -17,6 +17,14 @@
       <dd>{{ task.image_count }}</dd>
     </div>
     <div>
+      <dt>审核规范</dt>
+      <dd>
+        {% for spec in audit_specs %}
+          {{ spec.label }}{% if not loop.last %}、{% endif %}
+        {% endfor %}
+      </dd>
+    </div>
+    <div>
       <dt>截图尺寸</dt>
       <dd>
         {% if task.screen_width_px and task.screen_height_px %}
@@ -42,7 +50,10 @@
     <p class="error">{{ task.error_message }}</p>
   {% endif %}
   {% if task.report_path %}
-    <p><a href="/tasks/{{ task.id }}/report.html">查看 HTML 报告</a></p>
+    <p>
+      <a href="/tasks/{{ task.id }}/report.html">查看 HTML 报告</a>
+      <a href="/tasks/{{ task.id }}/report.pdf">下载 PDF</a>
+    </p>
   {% endif %}
 
   <h2>图片</h2>

@@ -120,6 +120,56 @@ def test_rule_review_adds_spacing_issue_from_failed_distance_measurement():
     assert "18.4px" in result["rule_warnings"][0]["current_observation"]
 
 
+def test_rule_review_skips_jm_ai_token_rules_for_b_design():
+    audit = _audit(
+        issues=[
+            {
+                "category": "数据收集",
+                "location": "上传提示",
+                "current_observation": "上传提示文案不准确。",
+                "spec_expectation": "文案应表达明确操作。",
+                "recommendation": "调整文案。",
+                "bbox": [10, 10, 40, 20],
+            }
+        ]
+    )
+    tokens = {
+        "samples": [
+            {
+                "label": "上传按钮",
+                "x": 20,
+                "y": 20,
+                "hex": "#F37021",
+                "nearest_jm_token": {"name": "ai/ai-normal", "hex": "#6B36FA"},
+                "off_token_candidate": True,
+            }
+        ]
+    }
+    measurements = {
+        "distances": [
+            {
+                "id": "gap",
+                "gap_design_px": 18,
+                "nearest_spacing": {"token": 16, "delta": 2, "passes_with_1px_tolerance": False},
+            }
+        ]
+    }
+
+    result = apply_rule_review(
+        audit,
+        tokens=tokens,
+        measurements=measurements,
+        image_size=(100, 100),
+        audit_spec_label="京东 B 端设计规范（B-design Agent 组件规范）",
+    )
+
+    assert len(result["issues"]) == 1
+    assert result["issues"][0]["category"] == "数据收集"
+    assert result["rule_hits"] == []
+    assert result["rule_warnings"] == []
+    assert "JM AI" not in str(result)
+
+
 def test_rule_review_drops_untrusted_bbox_but_keeps_text_issue():
     audit = _audit(
         issues=[

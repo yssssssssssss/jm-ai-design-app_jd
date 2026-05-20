@@ -101,15 +101,26 @@ def test_render_report_html_includes_model_comparison_when_present():
         image_results=[{"filename": "image-001.png", "audit": audit, "artifacts": {}}],
     )
 
-    assert "模型对比" in html
+    assert '<details class="model-moe report-details">' in html
+    assert "<summary>模型Moe</summary>" in html
+    assert '<details class="model-moe report-details" open>' not in html
+    assert "模型对比" not in html
     assert "合并后问题总数" in html
     assert "双方一致：1" in html
     assert "单模型补充：2" in html
-    assert "仅 GPT-5.5：1" not in html
-    assert "仅 Kimi-K2.6：1" not in html
-    assert "仅 GPT-5.5 发现的问题" not in html
-    assert "仅 Kimi-K2.6 发现的问题" not in html
-    assert "需人工复核" in html
+    assert "双权重" in html
+    assert "G 权重" in html
+    assert "K 权重" in html
+    assert "ISSUE-G-01" in html
+    assert "橙色图标" in html
+    assert "ISSUE-K-01" in html
+    assert "绿色标签" in html
+    assert "双方均发现的问题" not in html
+    assert "GPT-5.5 发现的问题" not in html
+    assert "仅 Kimi 提出，待确认是否采纳" not in html
+    review_section = html.split("K 权重", 1)[1]
+    assert "头像徽章" in review_section
+    assert "问题-003" not in html
     assert "模型失败信息" not in html
     assert "timeout" not in html
 
@@ -143,8 +154,49 @@ def test_render_report_html_includes_primary_candidate_review_items():
 
     assert "双方一致：1" in html
     assert "单模型补充：0" in html
-    assert "kimi-2" in html
+    assert "ISSUE-K-01" in html
     assert "候选模型认为品牌色需人工确认" in html
+
+
+def test_model_comparison_lists_review_candidates_under_source_model():
+    audit = _audit_payload()
+    audit["model_comparison"] = {
+        "models": ["GPT-5.5", "Kimi-K2.6"],
+        "agreed_issues": [],
+        "promoted_issues": [
+            {
+                "id": "ISSUE-001",
+                "source_models": ["GPT-5.5", "Kimi-K2.6"],
+                "location": "关键交互控件",
+                "current_observation": "蓝色强调色",
+            }
+        ],
+        "primary_only_issues": [],
+        "gpt_only_issues": [],
+        "kimi_only_issues": [],
+        "conflicts": [],
+        "review_candidates": [
+            {
+                "id": "issue-004",
+                "source_model": "Kimi-K2.6",
+                "location": "复选框与步骤条",
+                "current_observation": "复选框选中与步骤完成对勾为蓝绿色",
+            }
+        ],
+        "model_failures": [],
+    }
+
+    html = render_report_html(
+        task={"title": "审核", "summary": "完成"},
+        image_results=[{"filename": "image-001.png", "audit": audit, "artifacts": {}}],
+    )
+
+    shared_section = html.split("双权重", 1)[1].split("G 权重", 1)[0]
+    review_section = html.split("K 权重", 1)[1]
+    assert "ISSUE-001" in shared_section
+    assert "Kimi-K2.6 发现的问题" not in html
+    assert "ISSUE-K-01" in review_section
+    assert "复选框选中与步骤完成对勾为蓝绿色" in review_section
 
 
 def test_render_report_html_includes_rule_warnings():
@@ -200,6 +252,7 @@ def test_issues_table_falls_back_to_category_asset_when_no_snippet_matches():
     issues_html = html.split("详细问题清单", 1)[1].split("符合规范的点", 1)[0]
     assert 'src="/spec-assets/color.png"' in issues_html
     assert 'alt="色彩规范参考"' in issues_html
+    assert "<figcaption>色彩规范参考</figcaption>" not in issues_html
 
 
 def test_issues_table_prefers_specific_spec_snippet_when_index_matches():
@@ -217,6 +270,197 @@ def test_issues_table_prefers_specific_spec_snippet_when_index_matches():
     assert "ai/ai-normal" in issues_html
 
 
+def test_report_uses_selected_b_design_asset_index(tmp_path):
+    index_path = tmp_path / "b-design-assets.json"
+    index_path.write_text(
+        """
+        {
+          "assets": [
+            {
+              "label": "任务规划 · 组件构成",
+              "url": "/spec-snippets/b-design/task-planning.png",
+              "keywords": ["任务规划", "组件构成", "展开收起"]
+            }
+          ]
+        }
+        """,
+        encoding="utf-8",
+    )
+    audit = _audit_payload()
+    audit["issues"][0]["category"] = "任务规划"
+    audit["issues"][0]["location"] = "任务规划卡片"
+    audit["issues"][0]["current_observation"] = "缺少展开收起按钮"
+    audit["issues"][0]["recommendation"] = "补齐任务规划组件构成中的展开收起按钮"
+
+    html = render_report_html(
+        task={
+            "title": "B-design 审核",
+            "summary": "完成",
+            "audit_spec_label": "京东 B 端设计规范（B-design Agent 组件规范）",
+        },
+        image_results=[{"filename": "image-001.png", "audit": audit, "artifacts": {}}],
+        spec_asset_index_path=index_path,
+    )
+
+    assert "京东 B 端设计规范（B-design Agent 组件规范）审核报告" in html
+    assert 'src="/spec-snippets/b-design/task-planning.png"' in html
+    assert 'src="/spec-assets/color.png"' not in html
+
+
+def test_report_shows_b_design_applicability_and_loaded_sections():
+    audit = _audit_payload()
+    audit["b_design_applicability"] = {
+        "applicability": "weak",
+        "matched_components": [
+            {
+                "component_id": "data-collection",
+                "component_name": "数据收集",
+                "source_type": "alpha_case",
+                "confidence": 0.55,
+                "applicability": "weak",
+                "evidence": "截图中出现上传文件区域，来自 alpha_case 命中。",
+            }
+        ],
+        "reason": "命中 alpha_case 数据收集候选组件。",
+    }
+    audit["loaded_spec_sections"] = ["通用审核原则", "数据收集"]
+
+    html = render_report_html(
+        task={
+            "title": "B-design 审核",
+            "summary": "完成",
+            "audit_spec_label": "京东 B 端设计规范（B-design Agent 组件规范）",
+        },
+        image_results=[{"filename": "image-001.png", "audit": audit, "artifacts": {}}],
+    )
+
+    assert "适用性判断：弱适用" in html
+    assert "已加载规范章节：通用审核原则、数据收集" in html
+    assert "截图中出现上传文件区域" in html
+    assert "扩展案例 数据收集候选组件" in html
+    assert "alpha_case" not in html
+    assert "来源：alpha_case" not in html
+    assert "通用 B 端界面风险" not in html
+
+
+def test_report_hides_b_design_issue_rule_source_text_when_present():
+    audit = _audit_payload()
+    audit["issues"][0]["rule_source_type"] = "alpha_case"
+    audit["issues"][0]["rule_source_ref"] = "references/alpha/image.png_NDR-SQ 1.png：灰卡嵌套和按钮顺序"
+
+    html = render_report_html(
+        task={
+            "title": "B-design 审核",
+            "summary": "完成",
+            "audit_spec_label": "京东 B 端设计规范（B-design Agent 组件规范）",
+        },
+        image_results=[{"filename": "image-001.png", "audit": audit, "artifacts": {}}],
+    )
+
+    issues_html = html.split("详细问题清单", 1)[1].split("符合规范的点", 1)[0]
+    assert "规则来源" not in issues_html
+    assert "alpha_case" not in issues_html
+    assert "灰卡嵌套和按钮顺序" not in issues_html
+    assert 'class="spec-reference"' in issues_html
+    assert "<figcaption>" not in issues_html
+    assert "<img" in issues_html
+
+
+def test_report_uses_per_result_asset_index_for_multiple_specs(tmp_path):
+    jm_index_path = tmp_path / "jm-assets.json"
+    jm_index_path.write_text(
+        """
+        {
+          "assets": [
+            {
+              "label": "JM AI · 主色",
+              "url": "/spec-snippets/jm-ai/color.png",
+              "keywords": ["主按钮", "主色"]
+            }
+          ]
+        }
+        """,
+        encoding="utf-8",
+    )
+    b_index_path = tmp_path / "b-design-assets.json"
+    b_index_path.write_text(
+        """
+        {
+          "assets": [
+            {
+              "label": "B-design · 任务规划",
+              "url": "/spec-snippets/b-design/task-planning.png",
+              "keywords": ["任务规划", "展开收起"]
+            }
+          ]
+        }
+        """,
+        encoding="utf-8",
+    )
+    jm_audit = _audit_payload()
+    b_audit = _audit_payload()
+    b_audit["issues"][0]["category"] = "任务规划"
+    b_audit["issues"][0]["location"] = "任务规划卡片"
+    b_audit["issues"][0]["current_observation"] = "缺少展开收起按钮"
+    b_audit["issues"][0]["recommendation"] = "补齐任务规划组件中的展开收起按钮"
+
+    html = render_report_html(
+        task={
+            "title": "多规范审核",
+            "summary": "完成",
+            "audit_spec_label": "JM AI 设计规范、B-design Agent 组件规范",
+        },
+        image_results=[
+            {
+                "filename": "image-001.png",
+                "audit_spec_label": "JM AI 设计规范",
+                "spec_asset_index_path": jm_index_path,
+                "audit": jm_audit,
+                "artifacts": {},
+            },
+            {
+                "filename": "image-001.png",
+                "audit_spec_label": "B-design Agent 组件规范",
+                "spec_asset_index_path": b_index_path,
+                "audit": b_audit,
+                "artifacts": {},
+            },
+        ],
+    )
+
+    assert "JM AI 设计规范、B-design Agent 组件规范审核报告" in html
+    assert "审核规范：JM AI 设计规范" in html
+    assert "审核规范：B-design Agent 组件规范" in html
+    assert 'src="/spec-snippets/jm-ai/color.png"' in html
+    assert 'src="/spec-snippets/b-design/task-planning.png"' in html
+
+
+def test_issues_table_replaces_location_with_issue_crop_and_localizes_recommendation():
+    audit = _audit_payload()
+    audit["issues"][0]["recommendation"] = "Change button to JM AI color token."
+
+    html = render_report_html(
+        task={"title": "审核", "summary": "完成"},
+        image_results=[
+            {
+                "filename": "image-001.png",
+                "audit": audit,
+                "artifacts": {
+                    "issue_crops": ["artifacts/image-001/issue-color-01.png"],
+                },
+            }
+        ],
+    )
+
+    issues_html = html.split("详细问题清单", 1)[1].split("符合规范的点", 1)[0]
+    assert '<label class="issue-crop-trigger" for="image-1-screenshot-1-open"' in issues_html
+    assert 'src="artifacts/image-001/issue-color-01.png"' in issues_html
+    assert "主按钮" not in issues_html
+    assert "Change" not in issues_html
+    assert "color token" not in issues_html
+    assert "规范色彩令牌" in issues_html
+
+
 def test_reference_asset_images_open_zoom_modal():
     html = render_report_html(
         task={"title": "审核", "summary": "完成"},
@@ -229,6 +473,8 @@ def test_reference_asset_images_open_zoom_modal():
     assert '<input type="checkbox" class="image-modal-toggle" id="image-1-reference-1-open">' in issues_html
     assert 'class="image-modal" role="dialog" aria-modal="true" aria-label="AI 主纯色"' in issues_html
     assert '<label class="image-modal-close" for="image-1-reference-1-open" role="button" aria-label="关闭">×</label>' in issues_html
+    assert "<figcaption>AI 主纯色</figcaption>" not in issues_html
+    assert '<p class="image-modal-caption">AI 主纯色</p>' not in issues_html
     assert 'href="#report-top"' not in issues_html
     assert 'href="#image-1-reference-1"' not in issues_html
     assert 'class="image-modal-viewport"' not in issues_html
@@ -342,7 +588,7 @@ def test_core_conclusion_shows_compliance_status_before_summary_analysis():
         ],
     )
 
-    core_html = html.split("核心结论", 1)[1].split("审核综述", 1)[0]
+    core_html = html.split("核心结论", 1)[1].split("问题截图", 1)[0]
     assert "整体结论：不合规" in core_html
     assert "总结分析：不符合 JM AI strict mode，主按钮颜色偏差明显" in core_html
     assert core_html.index("整体结论：不合规") < core_html.index("总结分析：")
@@ -363,11 +609,13 @@ def test_report_replaces_major_issues_with_audit_overview():
     assert "主要问题" not in html
     assert "研发/验收 Checklist" not in html
     assert "审核综述" in html
-    assert html.index("审核综述") < html.index("问题截图")
-    overview_html = html.split("审核综述", 1)[1].split("问题截图", 1)[0]
+    assert html.index("待确认") < html.index("质量摘要") < html.index("审核综述")
+    overview_html = html.split("审核综述", 1)[1].split("测量证据", 1)[0]
     assert "按钮颜色偏差" not in overview_html
     assert '<table class="checklist-table">' in overview_html
     assert "AI 主色" in overview_html
+    details_start = html.rfind("<details", 0, html.index("审核综述"))
+    assert "open" not in html[details_start : html.index("审核综述")]
 
 
 def test_report_renders_quality_summary_with_rule_and_version_metadata():
@@ -387,6 +635,8 @@ def test_report_renders_quality_summary_with_rule_and_version_metadata():
     assert "规则命中" in quality_html
     assert "jm-audit-prompt-v1" in quality_html
     assert "可信 1" in quality_html
+    details_start = html.rfind("<details", 0, html.index("质量摘要"))
+    assert "open" not in html[details_start : html.index("质量摘要")]
 
 
 def test_report_includes_back_link_to_history_when_task_id_is_known():
@@ -396,9 +646,20 @@ def test_report_includes_back_link_to_history_when_task_id_is_known():
         task_id=42,
     )
 
-    assert '<a class="back-link" href="/tasks">返回</a>' in html
+    assert '<a class="report-action-link" href="/tasks">返回</a>' in html
+    assert '<a class="report-action-link" href="/tasks/42/report.pdf">下载 PDF</a>' in html
     assert "返回任务详情" not in html
     assert 'href="/tasks/42"' not in html
+
+
+def test_report_omits_pdf_download_when_task_id_is_missing():
+    html = render_report_html(
+        task={"title": "离线审核", "summary": "完成"},
+        image_results=[],
+    )
+
+    assert "下载 PDF" not in html
+    assert "report.pdf" not in html
 
 
 def test_render_report_html_matches_skill_report_structure():
@@ -462,9 +723,13 @@ def test_render_report_html_matches_skill_report_structure():
     assert "问题截图" in html
     assert "全图标注" in html
     assert "issue-color-01.png" in html
-    assert "<figcaption>全图标注</figcaption><img" in html
+    assert '<label class="screenshot-trigger" for="image-1-screenshot-annotated-open"' in html
+    assert '<input type="checkbox" class="image-modal-toggle" id="image-1-screenshot-annotated-open">' in html
+    assert '<label class="screenshot-trigger" for="image-1-screenshot-crop-1-open"' in html
+    assert 'class="image-modal" role="dialog" aria-modal="true" aria-label="color-01：改为 #6B36FA"' in html
     screenshots_html = html.split("问题截图", 1)[1].split("详细问题清单", 1)[0]
-    assert screenshots_html.count("<figcaption>修改建议</figcaption>") == 2
+    assert "<figcaption>color-01：改为 #6B36FA</figcaption>" in screenshots_html
+    assert "<figcaption>tag-01：改为 规范标签/按钮 样式</figcaption>" in screenshots_html
     assert "color-01：绿色按钮" not in screenshots_html
     assert "tag-01：功能胶囊不符合 JM AI tag/button" not in screenshots_html
     assert html.index("全图标注") < html.index("issue-color-01.png")
@@ -480,7 +745,8 @@ def test_render_report_html_matches_skill_report_structure():
     assert "置信度" not in html
     assert "待确认" in html
     assert "无法确认项" not in html
-    checklist_html = html.split("审核综述", 1)[1].split("问题截图", 1)[0]
+    assert html.index("待确认") < html.index("质量摘要") < html.index("审核综述")
+    checklist_html = html.split("审核综述", 1)[1].split("测量证据", 1)[0]
     assert "无法确认" not in checklist_html
     assert "字体族" not in checklist_html
     assert '<table class="checklist-table">' in html
@@ -489,4 +755,5 @@ def test_render_report_html_matches_skill_report_structure():
     assert ".checklist-table th:nth-child(2), .checklist-table td:nth-child(2) { width: 16%; }" in html
     assert ".screenshots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }" in html
     assert ".screenshot-card:not(.wide) { aspect-ratio: 1 / 1;" in html
+    assert ".screenshot-trigger { display: block; width: 100%; cursor: zoom-in; }" in html
     assert html.index("字号层级") < html.index("AI 主色")
