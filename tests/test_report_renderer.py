@@ -158,6 +158,198 @@ def test_render_report_html_includes_primary_candidate_review_items():
     assert "候选模型认为品牌色需人工确认" in html
 
 
+def test_render_report_html_counts_candidate_only_issues_as_model_supplements():
+    audit = _audit_payload()
+    candidate_issue = {
+        "id": "issue_1",
+        "severity": "中",
+        "category": "换肤/营销态",
+        "location": "底部导航栏第二项",
+        "current_observation": "候选模型发现标准导航项被品牌运营素材替换。",
+        "recommendation": "恢复标准 Tab 配置。",
+        "source_models": ["Kimi-K2.6"],
+        "agreement": "candidate_only",
+    }
+    audit["issues"].append(candidate_issue)
+    audit["model_comparison"] = {
+        "models": ["GPT-5.5", "Kimi-K2.6"],
+        "agreed_issues": [],
+        "promoted_issues": [],
+        "primary_only_issues": [audit["issues"][0]],
+        "candidate_only_issues": [candidate_issue],
+        "gpt_only_issues": [],
+        "kimi_only_issues": [],
+        "conflicts": [],
+        "review_candidates": [],
+        "model_failures": [],
+    }
+
+    html = render_report_html(
+        task={"title": "审核", "summary": "完成"},
+        image_results=[{"filename": "image-001.png", "audit": audit, "artifacts": {}}],
+    )
+
+    assert "合并后问题总数：2" in html
+    assert "单模型补充：2" in html
+    k_section = html.split("K 权重", 1)[1]
+    assert "ISSUE-K-01" in k_section
+    assert "候选模型发现标准导航项被品牌运营素材替换" in k_section
+
+
+def test_render_report_html_uses_model_weight_issue_numbers_everywhere():
+    audit = _audit_payload()
+    candidate_issue = {
+        "id": "issue_1",
+        "severity": "中",
+        "category": "换肤/营销态",
+        "location": "底部导航栏第二项",
+        "current_observation": "候选模型发现标准导航项被品牌运营素材替换。",
+        "recommendation": "恢复标准导航配置。",
+        "source_models": ["Kimi-K2.6"],
+        "agreement": "candidate_only",
+    }
+    audit["issues"][0]["agreement"] = "primary_only"
+    audit["issues"][0]["source_models"] = ["GPT-5.5"]
+    audit["issues"][0]["recommendation"] = "改为规范主色"
+    audit["issues"].append(candidate_issue)
+    audit["model_comparison"] = {
+        "models": ["GPT-5.5", "Kimi-K2.6"],
+        "agreed_issues": [],
+        "promoted_issues": [],
+        "primary_only_issues": [audit["issues"][0]],
+        "candidate_only_issues": [candidate_issue],
+        "gpt_only_issues": [],
+        "kimi_only_issues": [],
+        "conflicts": [],
+        "review_candidates": [],
+        "model_failures": [],
+    }
+
+    html = render_report_html(
+        task={"title": "审核", "summary": "完成"},
+        image_results=[
+            {
+                "filename": "image-001.png",
+                "audit": audit,
+                "artifacts": {
+                    "issue_crops": [
+                        "uploads/42/artifacts/image-001/issue-color-01.png",
+                        "uploads/42/artifacts/image-001/issue-issue_1.png",
+                    ],
+                },
+            }
+        ],
+        task_id=42,
+    )
+
+    issues_html = html.split("详细问题清单", 1)[1].split("符合规范的点", 1)[0]
+    screenshots_html = html.split("问题截图", 1)[1].split("详细问题清单", 1)[0]
+    assert "<td>ISSUE-G-01</td>" in issues_html
+    assert "<td>ISSUE-K-01</td>" in issues_html
+    assert "<td>color-01</td>" not in issues_html
+    assert "<td>issue_1</td>" not in issues_html
+    assert "ISSUE-G-01：改为规范主色" in screenshots_html
+    assert "ISSUE-K-01：恢复标准导航配置。" in screenshots_html
+    assert "issue_1：恢复标准导航配置。" not in screenshots_html
+
+
+def test_render_report_html_numbers_multiple_primary_and_candidate_issues_consistently():
+    gpt_1 = {
+        "id": "ISSUE-001",
+        "severity": "中",
+        "category": "底部导航栏-图标/营销态",
+        "location": "底部导航栏第二个坑位",
+        "current_observation": "第二个坑位显示为相机商品缩略图。",
+        "recommendation": "确认该坑位是否为底导营销态。",
+        "source_models": ["GPT-5.5"],
+        "agreement": "primary_only",
+    }
+    gpt_2 = {
+        "id": "ISSUE-002",
+        "severity": "中",
+        "category": "底部导航栏-文本标签",
+        "location": "底部导航栏第二个坑位",
+        "current_observation": "第二个导航坑位下方未清晰看到对应文本标签。",
+        "recommendation": "为该坑位补充清晰导航文案。",
+        "source_models": ["GPT-5.5"],
+        "agreement": "primary_only",
+    }
+    kimi_1 = {
+        "id": "1",
+        "severity": "中",
+        "category": "底部导航栏/营销态",
+        "location": "底部Tabbar第二位",
+        "current_observation": "该Tab使用大疆相机实物图片。",
+        "recommendation": "立即恢复标准线面图标。",
+        "source_models": ["Kimi-K2.6"],
+        "agreement": "candidate_only",
+    }
+    kimi_2 = {
+        "id": "2",
+        "severity": "中",
+        "category": "底部导航栏/换肤",
+        "location": "底部Tabbar第二位图标",
+        "current_observation": "该位图标采用摄影写实材质。",
+        "recommendation": "统一替换为规范图标系统。",
+        "source_models": ["Kimi-K2.6"],
+        "agreement": "candidate_only",
+    }
+    audit = _audit_payload()
+    audit["issues"] = [gpt_1, gpt_2, kimi_1, kimi_2]
+    audit["model_comparison"] = {
+        "models": ["GPT-5.5", "Kimi-K2.6"],
+        "agreed_issues": [],
+        "promoted_issues": [],
+        "primary_only_issues": [gpt_1, gpt_2],
+        "candidate_only_issues": [kimi_1, kimi_2],
+        "gpt_only_issues": [],
+        "kimi_only_issues": [],
+        "conflicts": [],
+        "review_candidates": [],
+        "model_failures": [],
+    }
+
+    html = render_report_html(
+        task={"title": "审核", "summary": "完成"},
+        image_results=[
+            {
+                "filename": "image-001.png",
+                "audit": audit,
+                "artifacts": {
+                    "issue_crops": [
+                        "uploads/80/artifacts/image-001/issue-ISSUE-001.png",
+                        "uploads/80/artifacts/image-001/issue-ISSUE-002.png",
+                        "uploads/80/artifacts/image-001/issue-1.png",
+                        "uploads/80/artifacts/image-001/issue-2.png",
+                    ],
+                },
+            }
+        ],
+        task_id=80,
+    )
+
+    moe_html = html.split("<summary>模型Moe</summary>", 1)[1].split("</details>", 1)[0]
+    screenshots_html = html.split("问题截图", 1)[1].split("详细问题清单", 1)[0]
+    issues_html = html.split("详细问题清单", 1)[1].split("符合规范的点", 1)[0]
+    assert "合并后问题总数：4" in moe_html
+    assert "单模型补充：4" in moe_html
+    assert "ISSUE-K-01" in moe_html
+    assert "ISSUE-K-02" in moe_html
+    for section in [screenshots_html, issues_html]:
+        assert "ISSUE-G-01" in section
+        assert "ISSUE-G-02" in section
+        assert "ISSUE-K-01" in section
+        assert "ISSUE-K-02" in section
+        assert "<td>ISSUE-001</td>" not in section
+        assert "<td>ISSUE-002</td>" not in section
+        assert "<td>1</td>" not in section
+        assert "<td>2</td>" not in section
+        assert "<figcaption>1：" not in section
+        assert "<figcaption>2：" not in section
+        assert 'aria-label="放大查看 1：' not in section
+        assert 'aria-label="放大查看 2：' not in section
+
+
 def test_model_comparison_lists_review_candidates_under_source_model():
     audit = _audit_payload()
     audit["model_comparison"] = {
@@ -193,7 +385,8 @@ def test_model_comparison_lists_review_candidates_under_source_model():
 
     shared_section = html.split("双权重", 1)[1].split("G 权重", 1)[0]
     review_section = html.split("K 权重", 1)[1]
-    assert "ISSUE-001" in shared_section
+    assert "ISSUE-G-01" in shared_section
+    assert "ISSUE-001" not in shared_section
     assert "Kimi-K2.6 发现的问题" not in html
     assert "ISSUE-K-01" in review_section
     assert "复选框选中与步骤完成对勾为蓝绿色" in review_section

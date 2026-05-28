@@ -1,0 +1,962 @@
+{
+  "version": 1,
+  "spec_id": "bottom-nav",
+  "assets": [
+    {
+      "id": "bottom-nav-p02-01",
+      "label": "底部导航栏 · 间距为-4DP，如图2；",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p02-01.png",
+      "source": "导航类-底部导航栏.pdf#page=2",
+      "width": 628,
+      "height": 182,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "间距为-4DP，如图2；"
+      ]
+    },
+    {
+      "id": "bottom-nav-p02-02",
+      "label": "底部导航栏 · 间距为-4DP，如图2；",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p02-02.png",
+      "source": "导航类-底部导航栏.pdf#page=2",
+      "width": 624,
+      "height": 195,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "间距为-4DP，如图2；"
+      ]
+    },
+    {
+      "id": "bottom-nav-p02-03",
+      "label": "底部导航栏 · 间距为-4DP，如图2；",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p02-03.png",
+      "source": "导航类-底部导航栏.pdf#page=2",
+      "width": 1230,
+      "height": 370,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "间距为-4DP，如图2；"
+      ]
+    },
+    {
+      "id": "bottom-nav-p03-01",
+      "label": "底部导航栏 · 规范示意图",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p03-01.png",
+      "source": "导航类-底部导航栏.pdf#page=3",
+      "width": 1234,
+      "height": 362,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "规范示意图",
+        "灵动岛",
+        "大促"
+      ]
+    },
+    {
+      "id": "bottom-nav-p03-02",
+      "label": "底部导航栏 · 规范示意图",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p03-02.png",
+      "source": "导航类-底部导航栏.pdf#page=3",
+      "width": 1244,
+      "height": 374,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "规范示意图",
+        "灵动岛",
+        "大促"
+      ]
+    },
+    {
+      "id": "bottom-nav-p03-03",
+      "label": "底部导航栏 · 规范示意图",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p03-03.png",
+      "source": "导航类-底部导航栏.pdf#page=3",
+      "width": 1242,
+      "height": 362,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "规范示意图",
+        "灵动岛",
+        "大促"
+      ]
+    },
+    {
+      "id": "bottom-nav-p04-01",
+      "label": "底部导航栏 · Agent+底导布局属性",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p04-01.png",
+      "source": "导航类-底部导航栏.pdf#page=4",
+      "width": 1236,
+      "height": 352,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "Agent+底导布局属性",
+        "Agent",
+        "灵动岛"
+      ]
+    },
+    {
+      "id": "bottom-nav-p04-02",
+      "label": "底部导航栏 · Agent+底导布局属性",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p04-02.png",
+      "source": "导航类-底部导航栏.pdf#page=4",
+      "width": 1244,
+      "height": 372,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "Agent+底导布局属性",
+        "Agent",
+        "灵动岛"
+      ]
+    },
+    {
+      "id": "bottom-nav-p04-03",
+      "label": "底部导航栏 · Agent+底导布局属性",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p04-03.png",
+      "source": "导航类-底部导航栏.pdf#page=4",
+      "width": 1250,
+      "height": 360,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "Agent+底导布局属性",
+        "Agent",
+        "灵动岛"
+      ]
+    },
+    {
+      "id": "bottom-nav-p05-01",
+      "label": "底部导航栏 · 间距为-4DP，如图2；",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p05-01.png",
+      "source": "导航类-底部导航栏.pdf#page=5",
+      "width": 1250,
+      "height": 360,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "间距为-4DP，如图2；"
+      ]
+    },
+    {
+      "id": "bottom-nav-p05-02",
+      "label": "底部导航栏 · 间距为-4DP，如图2；",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p05-02.png",
+      "source": "导航类-底部导航栏.pdf#page=5",
+      "width": 1248,
+      "height": 362,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "间距为-4DP，如图2；"
+      ]
+    },
+    {
+      "id": "bottom-nav-p05-03",
+      "label": "底部导航栏 · 间距为-4DP，如图2；",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p05-03.png",
+      "source": "导航类-底部导航栏.pdf#page=5",
+      "width": 1248,
+      "height": 374,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "间距为-4DP，如图2；"
+      ]
+    },
+    {
+      "id": "bottom-nav-p06-01",
+      "label": "底部导航栏 · 交互状态标注",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p06-01.png",
+      "source": "导航类-底部导航栏.pdf#page=6",
+      "width": 1246,
+      "height": 406,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "交互状态标注",
+        "灵动岛",
+        "大促"
+      ]
+    },
+    {
+      "id": "bottom-nav-p06-02",
+      "label": "底部导航栏 · 交互状态标注",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p06-02.png",
+      "source": "导航类-底部导航栏.pdf#page=6",
+      "width": 1244,
+      "height": 378,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "交互状态标注",
+        "灵动岛",
+        "大促"
+      ]
+    },
+    {
+      "id": "bottom-nav-p06-03",
+      "label": "底部导航栏 · 交互状态标注",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p06-03.png",
+      "source": "导航类-底部导航栏.pdf#page=6",
+      "width": 1244,
+      "height": 356,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "交互状态标注",
+        "灵动岛",
+        "大促"
+      ]
+    },
+    {
+      "id": "bottom-nav-p07-01",
+      "label": "底部导航栏 · 阶/gray_1；如图1；",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p07-01.png",
+      "source": "导航类-底部导航栏.pdf#page=7",
+      "width": 1250,
+      "height": 520,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "阶/gray_1；如图1；",
+        "灵动岛"
+      ]
+    },
+    {
+      "id": "bottom-nav-p07-02",
+      "label": "底部导航栏 · 阶/gray_1；如图1；",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p07-02.png",
+      "source": "导航类-底部导航栏.pdf#page=7",
+      "width": 1222,
+      "height": 514,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "阶/gray_1；如图1；",
+        "灵动岛"
+      ]
+    },
+    {
+      "id": "bottom-nav-p08-01",
+      "label": "底部导航栏 · 招手形态标注",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p08-01.png",
+      "source": "导航类-底部导航栏.pdf#page=8",
+      "width": 1240,
+      "height": 522,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "招手形态标注",
+        "灵动岛",
+        "招手",
+        "红点",
+        "数字型",
+        "文字型"
+      ]
+    },
+    {
+      "id": "bottom-nav-p08-02",
+      "label": "底部导航栏 · 招手形态标注",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p08-02.png",
+      "source": "导航类-底部导航栏.pdf#page=8",
+      "width": 1236,
+      "height": 500,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "招手形态标注",
+        "灵动岛",
+        "招手",
+        "红点",
+        "数字型",
+        "文字型"
+      ]
+    },
+    {
+      "id": "bottom-nav-p09-01",
+      "label": "底部导航栏 · 底导逛一逛支持最大四个字符，如图3；",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p09-01.png",
+      "source": "导航类-底部导航栏.pdf#page=9",
+      "width": 1226,
+      "height": 490,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "底导逛一逛支持最大四个字符，如图3；",
+        "灵动岛",
+        "红点",
+        "文字型"
+      ]
+    },
+    {
+      "id": "bottom-nav-p09-02",
+      "label": "底部导航栏 · 底导逛一逛支持最大四个字符，如图3；",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p09-02.png",
+      "source": "导航类-底部导航栏.pdf#page=9",
+      "width": 1244,
+      "height": 482,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "底导逛一逛支持最大四个字符，如图3；",
+        "灵动岛",
+        "红点",
+        "文字型"
+      ]
+    },
+    {
+      "id": "bottom-nav-p10-01",
+      "label": "底部导航栏 · Joy Agent",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p10-01.png",
+      "source": "导航类-底部导航栏.pdf#page=10",
+      "width": 1238,
+      "height": 498,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "Joy Agent",
+        "Agent",
+        "灵动岛",
+        "招手"
+      ]
+    },
+    {
+      "id": "bottom-nav-p10-02",
+      "label": "底部导航栏 · Joy Agent",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p10-02.png",
+      "source": "导航类-底部导航栏.pdf#page=10",
+      "width": 1242,
+      "height": 522,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "Joy Agent",
+        "Agent",
+        "灵动岛",
+        "招手"
+      ]
+    },
+    {
+      "id": "bottom-nav-p11-01",
+      "label": "底部导航栏 · 灵动岛运营资源位",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p11-01.png",
+      "source": "导航类-底部导航栏.pdf#page=11",
+      "width": 1226,
+      "height": 490,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "灵动岛运营资源位",
+        "灵动岛",
+        "大促"
+      ]
+    },
+    {
+      "id": "bottom-nav-p11-02",
+      "label": "底部导航栏 · 灵动岛运营资源位",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p11-02.png",
+      "source": "导航类-底部导航栏.pdf#page=11",
+      "width": 1240,
+      "height": 532,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "灵动岛运营资源位",
+        "灵动岛",
+        "大促"
+      ]
+    },
+    {
+      "id": "bottom-nav-p12-01",
+      "label": "底部导航栏 · 规范示意图",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p12-01.png",
+      "source": "导航类-底部导航栏.pdf#page=12",
+      "width": 1238,
+      "height": 790,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "规范示意图"
+      ]
+    },
+    {
+      "id": "bottom-nav-p13-01",
+      "label": "底部导航栏 · 任何元素，见图3；",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p13-01.png",
+      "source": "导航类-底部导航栏.pdf#page=13",
+      "width": 1244,
+      "height": 772,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "任何元素，见图3；",
+        "灵动岛"
+      ]
+    },
+    {
+      "id": "bottom-nav-p14-01",
+      "label": "底部导航栏 · 4；",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p14-01.png",
+      "source": "导航类-底部导航栏.pdf#page=14",
+      "width": 1204,
+      "height": 768,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "4；"
+      ]
+    },
+    {
+      "id": "bottom-nav-p15-01",
+      "label": "底部导航栏 · 任何元素，支持异型背板，见图5；",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p15-01.png",
+      "source": "导航类-底部导航栏.pdf#page=15",
+      "width": 1240,
+      "height": 752,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "任何元素，支持异型背板，见图5；",
+        "灵动岛",
+        "大促"
+      ]
+    },
+    {
+      "id": "bottom-nav-p16-01",
+      "label": "底部导航栏 · 6。",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p16-01.png",
+      "source": "导航类-底部导航栏.pdf#page=16",
+      "width": 1232,
+      "height": 764,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "6。"
+      ]
+    },
+    {
+      "id": "bottom-nav-p17-01",
+      "label": "底部导航栏 · 颜色应用",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p17-01.png",
+      "source": "导航类-底部导航栏.pdf#page=17",
+      "width": 1228,
+      "height": 758,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "颜色应用",
+        "灵动岛",
+        "大促"
+      ]
+    },
+    {
+      "id": "bottom-nav-p17-02",
+      "label": "底部导航栏 · 颜色应用",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p17-02.png",
+      "source": "导航类-底部导航栏.pdf#page=17",
+      "width": 1438,
+      "height": 288,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "颜色应用",
+        "灵动岛",
+        "大促"
+      ]
+    },
+    {
+      "id": "bottom-nav-p18-01",
+      "label": "底部导航栏 · 材质应用",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p18-01.png",
+      "source": "导航类-底部导航栏.pdf#page=18",
+      "width": 1398,
+      "height": 388,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "材质应用",
+        "灵动岛",
+        "大促"
+      ]
+    },
+    {
+      "id": "bottom-nav-p18-02",
+      "label": "底部导航栏 · 材质应用",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p18-02.png",
+      "source": "导航类-底部导航栏.pdf#page=18",
+      "width": 1386,
+      "height": 384,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "材质应用",
+        "灵动岛",
+        "大促"
+      ]
+    },
+    {
+      "id": "bottom-nav-p18-03",
+      "label": "底部导航栏 · 材质应用",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p18-03.png",
+      "source": "导航类-底部导航栏.pdf#page=18",
+      "width": 1312,
+      "height": 282,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "材质应用",
+        "灵动岛",
+        "大促"
+      ]
+    },
+    {
+      "id": "bottom-nav-p19-01",
+      "label": "底部导航栏 · 阶背景组成，见图3。",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p19-01.png",
+      "source": "导航类-底部导航栏.pdf#page=19",
+      "width": 1322,
+      "height": 760,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "阶背景组成，见图3。",
+        "灵动岛",
+        "大促"
+      ]
+    },
+    {
+      "id": "bottom-nav-p20-01",
+      "label": "底部导航栏 · 多端适配",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p20-01.png",
+      "source": "导航类-底部导航栏.pdf#page=20",
+      "width": 1324,
+      "height": 844,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "多端适配",
+        "iOS26",
+        "Android"
+      ]
+    },
+    {
+      "id": "bottom-nav-p21-01",
+      "label": "底部导航栏 · 底导换肤规则",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p21-01.png",
+      "source": "导航类-底部导航栏.pdf#page=21",
+      "width": 1416,
+      "height": 528,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "底导换肤规则",
+        "Agent",
+        "换肤",
+        "Plus",
+        "大促",
+        "Android"
+      ]
+    },
+    {
+      "id": "bottom-nav-p21-02",
+      "label": "底部导航栏 · 底导换肤规则",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p21-02.png",
+      "source": "导航类-底部导航栏.pdf#page=21",
+      "width": 1408,
+      "height": 500,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "底导换肤规则",
+        "Agent",
+        "换肤",
+        "Plus",
+        "大促",
+        "Android"
+      ]
+    },
+    {
+      "id": "bottom-nav-p22-01",
+      "label": "底部导航栏 · 璃效果），见图3、4；",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p22-01.png",
+      "source": "导航类-底部导航栏.pdf#page=22",
+      "width": 1264,
+      "height": 372,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "璃效果），见图3、4；",
+        "Agent",
+        "换肤",
+        "Plus"
+      ]
+    },
+    {
+      "id": "bottom-nav-p22-02",
+      "label": "底部导航栏 · 璃效果），见图3、4；",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p22-02.png",
+      "source": "导航类-底部导航栏.pdf#page=22",
+      "width": 1244,
+      "height": 378,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "璃效果），见图3、4；",
+        "Agent",
+        "换肤",
+        "Plus"
+      ]
+    },
+    {
+      "id": "bottom-nav-p22-03",
+      "label": "底部导航栏 · 璃效果），见图3、4；",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p22-03.png",
+      "source": "导航类-底部导航栏.pdf#page=22",
+      "width": 1246,
+      "height": 368,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "璃效果），见图3、4；",
+        "Agent",
+        "换肤",
+        "Plus"
+      ]
+    },
+    {
+      "id": "bottom-nav-p23-01",
+      "label": "底部导航栏 · 底导元素换肤要求",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p23-01.png",
+      "source": "导航类-底部导航栏.pdf#page=23",
+      "width": 1224,
+      "height": 350,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "底导元素换肤要求",
+        "Agent",
+        "换肤",
+        "Plus",
+        "大促"
+      ]
+    },
+    {
+      "id": "bottom-nav-p23-02",
+      "label": "底部导航栏 · 底导元素换肤要求",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p23-02.png",
+      "source": "导航类-底部导航栏.pdf#page=23",
+      "width": 1250,
+      "height": 354,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "底导元素换肤要求",
+        "Agent",
+        "换肤",
+        "Plus",
+        "大促"
+      ]
+    },
+    {
+      "id": "bottom-nav-p23-03",
+      "label": "底部导航栏 · 底导元素换肤要求",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p23-03.png",
+      "source": "导航类-底部导航栏.pdf#page=23",
+      "width": 1250,
+      "height": 356,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "底导元素换肤要求",
+        "Agent",
+        "换肤",
+        "Plus",
+        "大促"
+      ]
+    },
+    {
+      "id": "bottom-nav-p24-01",
+      "label": "底部导航栏 · 动布局完成内容居中呈现，见图2；",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p24-01.png",
+      "source": "导航类-底部导航栏.pdf#page=24",
+      "width": 1402,
+      "height": 342,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "动布局完成内容居中呈现，见图2；",
+        "换肤",
+        "Plus",
+        "大促"
+      ]
+    },
+    {
+      "id": "bottom-nav-p24-02",
+      "label": "底部导航栏 · 动布局完成内容居中呈现，见图2；",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p24-02.png",
+      "source": "导航类-底部导航栏.pdf#page=24",
+      "width": 1396,
+      "height": 348,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "动布局完成内容居中呈现，见图2；",
+        "换肤",
+        "Plus",
+        "大促"
+      ]
+    },
+    {
+      "id": "bottom-nav-p25-01",
+      "label": "底部导航栏 · 图标交互状态",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p25-01.png",
+      "source": "导航类-底部导航栏.pdf#page=25",
+      "width": 1324,
+      "height": 410,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "图标交互状态",
+        "换肤"
+      ]
+    },
+    {
+      "id": "bottom-nav-p25-02",
+      "label": "底部导航栏 · 图标交互状态",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p25-02.png",
+      "source": "导航类-底部导航栏.pdf#page=25",
+      "width": 1362,
+      "height": 616,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "图标交互状态",
+        "换肤"
+      ]
+    },
+    {
+      "id": "bottom-nav-p26-01",
+      "label": "底部导航栏 · 底导换肤材质规则",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p26-01.png",
+      "source": "导航类-底部导航栏.pdf#page=26",
+      "width": 1346,
+      "height": 682,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "底导换肤材质规则",
+        "文字型",
+        "换肤"
+      ]
+    },
+    {
+      "id": "bottom-nav-p26-02",
+      "label": "底部导航栏 · 底导换肤材质规则",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p26-02.png",
+      "source": "导航类-底部导航栏.pdf#page=26",
+      "width": 1340,
+      "height": 514,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "底导换肤材质规则",
+        "文字型",
+        "换肤"
+      ]
+    },
+    {
+      "id": "bottom-nav-p27-01",
+      "label": "底部导航栏 · 错误用法",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p27-01.png",
+      "source": "导航类-底部导航栏.pdf#page=27",
+      "width": 1424,
+      "height": 320,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "错误用法",
+        "换肤"
+      ]
+    },
+    {
+      "id": "bottom-nav-p27-02",
+      "label": "底部导航栏 · 错误用法",
+      "url": "/spec-snippets/bottom-nav/bottom-nav-p27-02.png",
+      "source": "导航类-底部导航栏.pdf#page=27",
+      "width": 1410,
+      "height": 324,
+      "keywords": [
+        "导航类",
+        "底部导航栏",
+        "底导",
+        "Tabbar",
+        "底部导航",
+        "错误用法",
+        "换肤"
+      ]
+    }
+  ]
+}

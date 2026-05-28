@@ -7,6 +7,7 @@ from pathlib import Path
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_SPEC_ID = "jm-ai"
 B_DESIGN_SPEC_ID = "b-design"
+BOTTOM_NAV_SPEC_ID = "bottom-nav"
 
 
 @dataclass(frozen=True)
@@ -29,6 +30,12 @@ AUDIT_SPECS = {
         label="京东 B 端设计规范（B-design Agent 组件规范）",
         spec_path=ROOT_DIR / "references" / "specs" / "b-design.md",
         asset_index_path=ROOT_DIR / "references" / "spec-assets-b-design.json",
+    ),
+    BOTTOM_NAV_SPEC_ID: AuditSpec(
+        id=BOTTOM_NAV_SPEC_ID,
+        label="导航类-底部导航栏规范",
+        spec_path=ROOT_DIR / "references" / "specs" / "bottom-nav.md",
+        asset_index_path=ROOT_DIR / "references" / "spec-assets-bottom-nav.json",
     ),
 }
 

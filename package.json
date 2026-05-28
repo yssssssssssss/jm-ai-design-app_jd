@@ -1,0 +1,13 @@
+{
+  "name": "jm-ai-design-app",
+  "private": true,
+  "scripts": {
+    "start": "scripts/local_service.sh start",
+    "stop": "scripts/local_service.sh stop",
+    "restart": "scripts/local_service.sh restart",
+    "status": "scripts/local_service.sh status",
+    "logs": "scripts/local_service.sh logs",
+    "health": "scripts/local_service.sh health",
+    "dev": "scripts/local_service.sh start"
+  }
+}

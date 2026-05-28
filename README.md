@@ -38,6 +38,18 @@ Do not commit `.env`.
 
 Use one worker in phase 1. The task runner is in-process, so multiple web workers would need an external queue.
 
+For local development on this machine:
+
+```bash
+npm start
+npm stop
+npm restart
+npm run status
+npm run logs
+```
+
+The default local URL is `http://127.0.0.1:8010/`.
+
 ```bash
 uvicorn app.main:create_app --factory --host 0.0.0.0 --port 8000 --workers 1
 ```

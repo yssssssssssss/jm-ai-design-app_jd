@@ -23,6 +23,7 @@ MODEL_ORDER = ["GPT-5.5", "Kimi-K2.6"]
 SEVERITY_RANK = {"低": 1, "中": 2, "高": 3}
 TEXT_FIELDS = ["current_observation", "spec_expectation", "recommendation", "location"]
 MATCH_THRESHOLD = 0.65
+CANDIDATE_ONLY_CONFIDENCE_THRESHOLD = 0.65
 BBOX_KEEP = "keep"
 BBOX_DROP = "drop"
 CATEGORY_ALIASES = {
@@ -124,6 +125,7 @@ def merge_audit_attempts(
 def merge_primary_with_candidates(
     primary_attempt: dict[str, Any],
     candidate_attempts: list[dict[str, Any]],
+    audit_spec_label: str = "JM AI 设计规范",
 ) -> dict[str, Any]:
     primary = _valid_attempt_audit(primary_attempt, 0)
     candidates = [
@@ -146,6 +148,9 @@ def merge_primary_with_candidates(
             candidate_issue = dict(raw_issue)
             match = _find_match(official_issues, candidate_issue)
             if match is None:
+                if _should_promote_candidate_only(candidate_issue):
+                    official_issues.append(_candidate_only_issue(candidate_issue, candidate["model"]))
+                    continue
                 review_candidates.append(_review_candidate(candidate_issue, candidate["model"]))
                 continue
             _promote_primary_issue(match, candidate_issue, candidate["model"])
@@ -166,7 +171,20 @@ def merge_primary_with_candidates(
     comparison["primary_only_issues"] = [
         issue for issue in result["issues"] if issue.get("agreement") == "primary_only"
     ]
+    comparison["candidate_only_issues"] = [
+        issue for issue in result["issues"] if issue.get("agreement") == "candidate_only"
+    ]
     comparison["review_candidates"] = review_candidates
+    if result["issues"]:
+        result["checklist"] = _checklist_from_issues(result["issues"])
+    result["major_issues"] = result.get("major_issues") or [
+        _issue_summary(issue) for issue in result["issues"] if issue.get("severity") in {"高", "中"}
+    ]
+    result["overall_conclusion"] = _primary_merge_conclusion(
+        result["issues"],
+        comparison,
+        audit_spec_label,
+    )
     result["model_comparison"] = comparison
     return result
 
@@ -190,6 +208,13 @@ def _primary_issue(issue: dict[str, Any], model: str) -> dict[str, Any]:
     return output
 
 
+def _candidate_only_issue(issue: dict[str, Any], model: str) -> dict[str, Any]:
+    output = deepcopy(issue)
+    output["_source_models"] = [model]
+    output["_candidate_only"] = True
+    return output
+
+
 def _promote_primary_issue(
     primary_issue: dict[str, Any],
     candidate_issue: dict[str, Any],
@@ -205,11 +230,18 @@ def _promote_primary_issue(
 
 
 def _finalize_primary_issue(issue: dict[str, Any], index: int) -> dict[str, Any]:
-    output = {key: value for key, value in issue.items() if key != "_source_models"}
+    output = {
+        key: value
+        for key, value in issue.items()
+        if key not in {"_source_models", "_candidate_only"}
+    }
     output.setdefault("id", f"问题-{index:03d}")
     source_models = _sort_models(issue.get("_source_models", []))
     output["source_models"] = source_models
-    output["agreement"] = "promoted_candidate" if len(source_models) > 1 else "primary_only"
+    if issue.get("_candidate_only"):
+        output["agreement"] = "candidate_only"
+    else:
+        output["agreement"] = "promoted_candidate" if len(source_models) > 1 else "primary_only"
     return output
 
 
@@ -327,6 +359,8 @@ def _issue_match_score(left: dict[str, Any], right: dict[str, Any]) -> float:
     if left_bbox and right_bbox:
         if not _bbox_related(left_bbox, right_bbox):
             return 0.0
+        if _same_visual_target(left, right):
+            return 0.86
         if _different_semantic_category(left, right) and semantic_score < 0.55 and anchor_score < 0.6:
             return 0.0
         return 0.75 + min(object_score, 0.2) + min(semantic_score, 0.05)
@@ -338,6 +372,65 @@ def _issue_match_score(left: dict[str, Any], right: dict[str, Any]) -> float:
     if object_score >= 0.3 and category_match and semantic_score >= 0.18:
         return 0.65
     return 0.0
+
+
+def _same_visual_target(left: dict[str, Any], right: dict[str, Any]) -> bool:
+    if not _same_control_area(left, right):
+        return False
+    shared_tokens = _visual_issue_tokens(left) & _visual_issue_tokens(right)
+    return bool(shared_tokens & {"marketing_visual", "icon_style"})
+
+
+def _same_control_area(left: dict[str, Any], right: dict[str, Any]) -> bool:
+    left_text = _object_signature(left)
+    right_text = _object_signature(right)
+    if _same_bottom_navigation_slot(left_text, right_text):
+        return True
+
+    left_bbox = _bbox(left.get("bbox"))
+    right_bbox = _bbox(right.get("bbox"))
+    return bool(left_bbox and right_bbox and _bbox_containment(left_bbox, right_bbox) >= 0.85)
+
+
+def _same_bottom_navigation_slot(left_text: str, right_text: str) -> bool:
+    if not (_mentions_bottom_navigation(left_text) and _mentions_bottom_navigation(right_text)):
+        return False
+    return _slot_index(left_text) != "" and _slot_index(left_text) == _slot_index(right_text)
+
+
+def _mentions_bottom_navigation(text: str) -> bool:
+    return "底部" in text or "底导" in text or "tabbar" in text or "tab栏" in text
+
+
+def _slot_index(text: str) -> str:
+    if any(token in text for token in ["第二", "第2", "2位", "2个"]):
+        return "2"
+    if any(token in text for token in ["第一", "第1", "1位", "1个"]):
+        return "1"
+    if any(token in text for token in ["第三", "第3", "3位", "3个"]):
+        return "3"
+    if any(token in text for token in ["第四", "第4", "4位", "4个"]):
+        return "4"
+    if any(token in text for token in ["第五", "第5", "5位", "5个"]):
+        return "5"
+    return ""
+
+
+def _visual_issue_tokens(issue: dict[str, Any]) -> set[str]:
+    text = _normalized_text(
+        " ".join(
+            str(issue.get(field) or "")
+            for field in ["category", "current_observation"]
+        )
+    )
+    tokens: set[str] = set()
+    if any(token in text for token in ["营销", "商品", "品牌", "实物", "相机", "大疆"]):
+        tokens.add("marketing_visual")
+    if any(token in text for token in ["图标", "线面", "换肤", "材质", "风格", "摄影", "写实"]):
+        tokens.add("icon_style")
+    if any(token in text for token in ["文本", "文案", "标签", "文字"]):
+        tokens.add("label_text")
+    return tokens
 
 
 def _semantic_match(left: dict[str, Any], right: dict[str, Any]) -> bool:
@@ -424,9 +517,20 @@ def _issue_kind(issue: dict[str, Any]) -> str:
         return "typography"
     if any(token in text for token in ["按钮"]):
         return "button"
-    if any(token in text for token in ["图标", "闪光"]):
+    if any(token in text for token in ["图标", "闪光", "emoji", "表情", "星星", "星形", "星型", "四角星"]):
         return "icon"
     return ""
+
+
+def _should_promote_candidate_only(issue: dict[str, Any]) -> bool:
+    return _confidence(issue) > CANDIDATE_ONLY_CONFIDENCE_THRESHOLD
+
+
+def _confidence(issue: dict[str, Any]) -> float:
+    try:
+        return float(issue.get("confidence"))
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def _issue_kind_conflict(left: dict[str, Any], right: dict[str, Any]) -> bool:
@@ -785,6 +889,23 @@ def _conclusion(
     return (
         f"双模型本地合并完成：共发现 {len(issues)} 个{_spec_phrase(audit_spec_label)}问题，"
         f"双方共同确认 {agreed_count} 个，单模型补充 {supplemental_count} 个。"
+    )
+
+
+def _primary_merge_conclusion(
+    issues: list[dict[str, Any]],
+    comparison: dict[str, Any],
+    audit_spec_label: str,
+) -> str:
+    if not issues:
+        return f"双模型审核未发现明确{_spec_phrase(audit_spec_label)}问题。"
+    primary_count = len(comparison.get("primary_only_issues", [])) + len(
+        comparison.get("promoted_issues", [])
+    )
+    candidate_count = len(comparison.get("candidate_only_issues", []))
+    return (
+        f"双模型主审合并完成：共发现 {len(issues)} 个{_spec_phrase(audit_spec_label)}问题，"
+        f"主模型确认 {primary_count} 个，候选模型补充 {candidate_count} 个。"
     )
 
 

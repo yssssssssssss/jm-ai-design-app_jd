@@ -120,6 +120,7 @@ def test_upload_page_uses_checkbox_audit_spec_selection(client):
     assert "checked" not in page.text
     assert "JM AI 设计规范" in page.text
     assert "京东 B 端设计规范" in page.text
+    assert "导航类-底部导航栏规范" in page.text
 
 
 def test_upload_persists_declared_screen_size(client, settings, tmp_path):

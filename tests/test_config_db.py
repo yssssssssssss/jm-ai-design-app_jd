@@ -728,6 +728,24 @@ def test_create_task_persists_multiple_audit_spec_ids(tmp_path):
     assert refreshed.audit_spec_id == "jm-ai,b-design"
 
 
+def test_create_task_persists_bottom_nav_audit_spec_id(tmp_path):
+    conn = connect(tmp_path / "app.db")
+    init_db(conn)
+    user = create_user(conn, "alice", "hash-1", "user")
+
+    task = create_task(
+        conn,
+        owner_id=user.id,
+        title="Bottom nav audit",
+        image_count=1,
+        audit_spec_id="bottom-nav",
+    )
+    refreshed = get_task_by_id(conn, task.id)
+
+    assert refreshed is not None
+    assert refreshed.audit_spec_id == "bottom-nav"
+
+
 def test_repository_timestamps_use_beijing_time(tmp_path, monkeypatch):
     fixed_time = "2026-05-09 18:30:45"
     monkeypatch.setattr("app.repositories.beijing_now_text", lambda: fixed_time)

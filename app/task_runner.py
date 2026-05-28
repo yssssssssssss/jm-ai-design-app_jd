@@ -174,7 +174,11 @@ def _dual_auditor(
                 attempts.append(failure)
         primary_attempt = attempts[0] if attempts else {}
         if isinstance(primary_attempt.get("audit"), dict):
-            result = merge_primary_with_candidates(primary_attempt, attempts[1:])
+            result = merge_primary_with_candidates(
+                primary_attempt,
+                attempts[1:],
+                audit_spec_label=audit_spec_label,
+            )
             failures = [
                 {
                     "model": str(attempt.get("model") or ""),

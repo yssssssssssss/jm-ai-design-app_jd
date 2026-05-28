@@ -188,6 +188,31 @@ def _audit_profile(audit_spec_label: str) -> dict[str, str]:
             "kimi_focus": "Agent 组件结构、必有元素、状态文案、展开收起、任务节点状态、生成中卡片内容、已加载扩展规则",
             "spec_heading": label,
         }
+    if _is_bottom_nav_label(label):
+        return {
+            "identity": f"你是 {label}审核助手。必须根据下面的 {label} 审核图片。",
+            "light_identity": f"你是 {label}轻量审核助手。",
+            "kimi_identity": f"你是 {label}审核助手。",
+            "focus": (
+                "必须覆盖移动端底部导航栏、Tabbar、常规底导、Agent+底导、Joy Agent、"
+                "灵动岛运营资源位、招手形态、营销态、底导换肤、多端材质适配和错误用法。"
+                "重点检查坑位数量是否为 2-5 个、底导总高/安全区/内容高度、图标尺寸、"
+                "文本最多 4 个汉字、Agent 招手最多 18 个汉字、红点/数字/文字招手位置、"
+                "灵动岛尺寸和红色禁放区域、iOS26 液态玻璃与 Android/老 iOS 毛玻璃适配、"
+                "换肤图标安全区域、背板对比度和复杂纹理。"
+                "不要套用 JM AI 或 B-design 的色彩、按钮、Agent 任务组件规则；"
+                "只有底部导航栏规范明确覆盖时，才判定为问题。"
+            ),
+            "light_rules": (
+                "1. 只检查底部导航栏/Tabbar/Joy Agent/灵动岛/底导换肤相关问题。"
+                "2. 检查底导总高 69DP、导航实际高度 52DP、iOS 安全区 17DP、内容高度 44DP 等关键尺寸；截图无法确认时写 cannot_verify。"
+                "3. 默认态图标 20*20DP、坑位 44*44DP、文本最多 4 个汉字；营销态图片 38*38DP，不得自造样式。"
+                "4. Joy Agent 为 52*52DP，招手最多 18 个汉字；灵动岛展开时 Agent 抽缩和选中态表现需符合规范。"
+                "5. 换肤素材需满足安全区域、透明 PNG、背板对比度和纹理复杂度要求。"
+            ),
+            "kimi_focus": "底部导航栏、Tabbar、Joy Agent、灵动岛、招手形态、营销态、换肤和多端材质适配",
+            "spec_heading": label,
+        }
     return {
         "identity": "你是 JM AI 设计规范审核助手。必须根据下面的 JM AI 规范审核图片。",
         "light_identity": "你是 JM AI 设计规范轻量审核助手。",
@@ -215,6 +240,17 @@ def _audit_profile(audit_spec_label: str) -> dict[str, str]:
 def _is_b_design_label(label: str) -> bool:
     normalized = (label or "").lower()
     return "b-design" in normalized or "agent 组件" in normalized
+
+
+def _is_bottom_nav_label(label: str) -> bool:
+    normalized = (label or "").lower()
+    return (
+        "bottom-nav" in normalized
+        or "底部导航栏" in normalized
+        or "底部导航" in normalized
+        or "底导" in normalized
+        or "tabbar" in normalized
+    )
 
 
 def _size_context(

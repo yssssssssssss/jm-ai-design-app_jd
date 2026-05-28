@@ -1,6 +1,7 @@
 import pytest
 
 from app.audit_merge import merge_audit_attempts, merge_audits, merge_primary_with_candidates
+from app.evidence_tools import build_issues_json_for_image
 
 
 def _audit(model: str, issues: list[dict]) -> dict:
@@ -556,6 +557,183 @@ def test_merge_primary_with_candidates_keeps_candidate_out_of_official_issues_by
     assert result["model_comparison"]["promoted_issues"] == []
     assert result["model_comparison"]["primary_only_issues"] == []
     assert len(result["model_comparison"]["review_candidates"]) == 1
+
+
+def test_merge_primary_with_candidates_promotes_high_confidence_candidate_only_issue():
+    primary = _audit("GPT-5.5", [])
+    candidate = _audit(
+        "Kimi-K2.6",
+        [
+            {
+                "id": "candidate-1",
+                "category": "颜色",
+                "severity": "中",
+                "location": "顶部按钮",
+                "current_observation": "顶部按钮使用了不符合规范的高饱和绿色。",
+                "confidence": 0.66,
+                "bbox": [100, 80, 120, 48],
+            }
+        ],
+    )
+
+    result = merge_primary_with_candidates(
+        {"model": "GPT-5.5", "audit": primary, "image_size": (1000, 800)},
+        [{"model": "Kimi-K2.6", "audit": candidate, "image_size": (1000, 800)}],
+    )
+
+    assert len(result["issues"]) == 1
+    issue = result["issues"][0]
+    assert issue["agreement"] == "candidate_only"
+    assert issue["source_models"] == ["Kimi-K2.6"]
+    assert issue["bbox"] == [100, 80, 120, 48]
+    assert result["model_comparison"]["candidate_only_issues"] == result["issues"]
+    assert result["model_comparison"]["review_candidates"] == []
+    assert build_issues_json_for_image(result["issues"], image_size=(1000, 800)) == [
+        {
+            "id": "candidate-1",
+            "title": "顶部按钮使用了不符合规范的高饱和绿色。",
+            "severity": "中",
+            "category": "颜色",
+            "bbox": [100.0, 80.0, 120.0, 48.0],
+        }
+    ]
+
+
+def test_merge_primary_with_candidates_keeps_low_confidence_candidate_in_review():
+    primary = _audit("GPT-5.5", [])
+    candidate = _audit(
+        "Kimi-K2.6",
+        [
+            {
+                "id": "candidate-low",
+                "category": "颜色",
+                "severity": "中",
+                "location": "顶部按钮",
+                "current_observation": "顶部按钮可能存在颜色问题。",
+                "confidence": 0.65,
+                "bbox": [100, 80, 120, 48],
+            }
+        ],
+    )
+
+    result = merge_primary_with_candidates(
+        {"model": "GPT-5.5", "audit": primary, "image_size": (1000, 800)},
+        [{"model": "Kimi-K2.6", "audit": candidate, "image_size": (1000, 800)}],
+    )
+
+    assert result["issues"] == []
+    assert result["model_comparison"]["candidate_only_issues"] == []
+    assert result["model_comparison"]["review_candidates"][0]["id"] == "candidate-low"
+
+
+def test_merge_primary_with_candidates_promotes_b_design_candidate_only_emoji_rule():
+    primary = _audit("GPT-5.5", [])
+    candidate = _audit(
+        "Kimi-K2.6",
+        [
+            {
+                "id": "issue-005",
+                "category": "其他",
+                "severity": "低",
+                "location": "其他",
+                "current_observation": "该选项左侧有黄色四角星",
+                "spec_expectation": "属于模板未规范的装饰性图标",
+                "recommendation": "移除或换用规范图标",
+                "confidence": 0.7,
+                "bbox": [235.0, 450.0, 35.0, 35.0],
+                "rule_source_type": "alpha_case",
+                "rule_source_ref": "image.png_Hhc744 1.png等",
+            }
+        ],
+    )
+
+    result = merge_primary_with_candidates(
+        {"model": "GPT-5.5", "audit": primary, "image_size": (2434, 2348)},
+        [{"model": "Kimi-K2.6", "audit": candidate, "image_size": (2434, 2348)}],
+        audit_spec_label="京东 B 端设计规范（B-design Agent 组件规范）",
+    )
+
+    assert len(result["issues"]) == 1
+    issue = result["issues"][0]
+    assert issue["current_observation"] == "该选项左侧有黄色四角星"
+    assert issue["agreement"] == "candidate_only"
+    assert issue["source_models"] == ["Kimi-K2.6"]
+    assert issue["bbox"] == [235.0, 450.0, 35.0, 35.0]
+    assert result["model_comparison"]["candidate_only_issues"] == result["issues"]
+    assert result["model_comparison"]["review_candidates"] == []
+
+
+def test_merge_primary_with_candidates_semantically_dedupes_candidate_issues_into_primary():
+    primary_issue_1 = {
+        "id": "ISSUE-001",
+        "category": "底部导航栏-图标/营销态",
+        "severity": "中",
+        "location": "底部导航栏第二个坑位",
+        "current_observation": "第二个坑位显示为相机商品缩略图，并叠加红色“大疆”标签，整体更像自定义商品图片样式；与其他底导入口的线性/面性图标风格不一致，且可见尺寸明显大于普通图标。",
+        "spec_expectation": "默认态图标应为 20*20DP，坑位为 44*44DP；如为营销态图片，应使用规范的 38*38DP 素材，不应自造样式。",
+        "recommendation": "确认该坑位是否为底导营销态。若是，应替换为符合规范的 38*38DP 官方营销素材，并控制在底导坑位内；若不是营销态，应恢复为标准 20*20DP 图标样式。",
+        "confidence": 0.88,
+        "bbox": [491, 2438, 342, 331],
+    }
+    primary_issue_2 = {
+        "id": "ISSUE-002",
+        "category": "底部导航栏-文本标签",
+        "severity": "中",
+        "location": "底部导航栏第二个坑位",
+        "current_observation": "第二个导航坑位下方未清晰看到对应文本标签，而其他坑位均有“首页、消息、购物车、我的”等文字，信息结构不一致。",
+        "spec_expectation": "底部导航入口应保持图标与文本识别的一致性，文本最多 4 个汉字，避免仅靠图片导致入口含义不清。",
+        "recommendation": "为该坑位补充清晰、合规长度的导航文案，或确认其是否为特殊营销态并按营销态模板统一呈现。",
+        "confidence": 0.82,
+        "bbox": [491, 2438, 342, 331],
+    }
+    candidate_issue_1 = {
+        "id": "1",
+        "category": "底部导航栏/营销态",
+        "severity": "中",
+        "location": "底部Tabbar第二位",
+        "current_observation": "该Tab使用大疆相机实物图片并叠加红色品牌标签作为图标",
+        "spec_expectation": "Tab栏图标应使用平台统一规范图标，禁止直接放置品牌商品图与外显标签",
+        "recommendation": "立即恢复标准线面图标，品牌活动入口需移至页面内容区域",
+        "confidence": 0.78,
+        "bbox": [491, 2438, 342, 331],
+    }
+    candidate_issue_2 = {
+        "id": "2",
+        "category": "底部导航栏/换肤",
+        "severity": "中",
+        "location": "底部Tabbar第二位图标",
+        "current_observation": "该位图标采用摄影写实材质，与左右两侧标准线面图标质感冲突",
+        "spec_expectation": "同一导航栏内所有图标需保持风格、材质、粗细与色彩规范一致",
+        "recommendation": "统一替换为规范图标系统，禁止单Tab独立换肤破坏整体协调性",
+        "confidence": 0.77,
+        "bbox": [491, 2438, 342, 331],
+    }
+    primary = _audit("GPT-5.5", [primary_issue_1, primary_issue_2])
+    candidate = _audit("Kimi-K2.6", [candidate_issue_1, candidate_issue_2])
+
+    result = merge_primary_with_candidates(
+        {"model": "GPT-5.5", "audit": primary, "image_size": (1290, 2796)},
+        [{"model": "Kimi-K2.6", "audit": candidate, "image_size": (1290, 2796)}],
+        audit_spec_label="导航类-底部导航栏规范",
+    )
+
+    assert len(result["issues"]) == 2
+    assert [issue["id"] for issue in result["issues"]] == ["ISSUE-001", "ISSUE-002"]
+    assert [
+        issue["current_observation"] for issue in result["issues"]
+    ] == [
+        primary_issue_1["current_observation"],
+        primary_issue_2["current_observation"],
+    ]
+    assert [issue["agreement"] for issue in result["issues"]] == [
+        "promoted_candidate",
+        "primary_only",
+    ]
+    assert result["issues"][0]["source_models"] == ["GPT-5.5", "Kimi-K2.6"]
+    assert result["issues"][1]["source_models"] == ["GPT-5.5"]
+    assert len(result["model_comparison"]["promoted_issues"]) == 1
+    assert result["model_comparison"]["primary_only_issues"] == [result["issues"][1]]
+    assert result["model_comparison"]["candidate_only_issues"] == []
 
 
 def test_merge_audits_combines_same_real_world_issue_with_different_wording():

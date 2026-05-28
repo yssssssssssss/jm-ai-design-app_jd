@@ -24,6 +24,24 @@ def test_prompt_metadata_uses_b_design_versions_for_b_design():
     }
 
 
+def test_bottom_nav_prompt_uses_navigation_focus_without_other_spec_rules():
+    prompt = build_audit_prompt(
+        "BOTTOM NAV SPEC",
+        audit_spec_label="导航类-底部导航栏规范",
+    )
+
+    assert "BOTTOM NAV SPEC" in prompt
+    assert PROMPT_VERSION in prompt
+    assert SCHEMA_VERSION in prompt
+    assert "底部导航栏" in prompt
+    assert "Tabbar" in prompt
+    assert "灵动岛" in prompt
+    assert "Joy Agent" in prompt
+    assert "不要套用 JM AI 或 B-design" in prompt
+    assert "Agent 任务规划" not in prompt
+    assert "右上角操作区" not in prompt
+
+
 def test_build_audit_prompt_includes_versions_and_spec():
     prompt = build_audit_prompt("SPEC TEXT")
 

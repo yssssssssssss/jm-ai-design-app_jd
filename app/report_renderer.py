@@ -238,6 +238,18 @@ def _issue_number(issue: dict[str, Any], fallback_index: int) -> str:
     return f"{_category_slug(issue.get('category'))}-{fallback_index:02d}"
 
 
+def _issue_display_number(
+    issue: dict[str, Any],
+    fallback_index: int,
+    display_numbers: dict[tuple[str, str, str], str] | None = None,
+) -> str:
+    if display_numbers:
+        display_number = display_numbers.get(_comparison_issue_key(issue))
+        if display_number:
+            return display_number
+    return _issue_number(issue, fallback_index)
+
+
 def _crop_key_from_path(path: str) -> str:
     stem = Path(path).stem
     return stem.removeprefix("issue-")
@@ -247,6 +259,7 @@ def _issue_screenshot_context(
     issues: list[dict[str, Any]],
     artifacts: dict[str, Any],
     task_id: int | None,
+    display_numbers: dict[tuple[str, str, str], str] | None = None,
 ) -> dict[int, dict[str, str]]:
     crops = [
         crop
@@ -259,6 +272,7 @@ def _issue_screenshot_context(
 
     for index, issue in enumerate(issues, start=1):
         number = _issue_number(issue, index)
+        display_number = _issue_display_number(issue, index, display_numbers)
         crop = by_key.get(number)
         if crop is None and index <= len(crops):
             fallback = str(crops[index - 1])
@@ -273,9 +287,9 @@ def _issue_screenshot_context(
         recommendation = _display_recommendation(issue.get("recommendation"))
         context[index] = {
             "url": url,
-            "number": number,
+            "number": display_number,
             "recommendation": recommendation,
-            "caption": f"{number}：{recommendation}",
+            "caption": f"{display_number}：{recommendation}",
         }
     return context
 
@@ -302,6 +316,7 @@ def _issues_table(
     screenshots: dict[int, dict[str, str]],
     modal_prefix: str = "issue",
     spec_asset_index_path: Path | None = None,
+    display_numbers: dict[tuple[str, str, str], str] | None = None,
 ) -> str:
     if not issues:
         return '<p class="meta">未发现明确问题。</p>'
@@ -311,7 +326,7 @@ def _issues_table(
         screenshot_modal_id = f"{modal_prefix}-screenshot-{index}"
         rows.append(
             "<tr>"
-            f"<td>{_text(_issue_number(issue, index))}</td>"
+            f"<td>{_text(_issue_display_number(issue, index, display_numbers))}</td>"
             f"<td>{_text(issue.get('category'))}</td>"
             f"<td>{_issue_screenshot_cell(screenshots.get(index), screenshot_modal_id, issue.get('location'))}</td>"
             f"<td>{_text(issue.get('current_observation'))}</td>"
@@ -408,13 +423,19 @@ def _core_conclusion(audit: dict[str, Any]) -> str:
     """
 
 
-def _comparison_issue_list(items: list[dict[str, Any]], prefix: str | None = None) -> str:
+def _comparison_issue_list(
+    items: list[dict[str, Any]],
+    prefix: str | None = None,
+    display_numbers: dict[tuple[str, str, str], str] | None = None,
+) -> str:
     if not items:
         return '<p class="meta">无</p>'
 
     rows = []
     for index, item in enumerate(items, start=1):
-        label = f"ISSUE-{prefix}-{index:02d}" if prefix else item.get("id") or item.get("location") or "问题"
+        label = display_numbers.get(_comparison_issue_key(item)) if display_numbers else None
+        if not label:
+            label = f"ISSUE-{prefix}-{index:02d}" if prefix else item.get("id") or item.get("location") or "问题"
         location = str(item.get("location") or "").strip()
         detail = str(
             item.get("current_observation")
@@ -433,12 +454,13 @@ def _comparison_issue_section(
     items: list[dict[str, Any]],
     prefix: str | None = None,
     show_empty: bool = False,
+    display_numbers: dict[tuple[str, str, str], str] | None = None,
 ) -> str:
     if not items and not show_empty:
         return ""
     return f"""
       <h4>{_text(title)}</h4>
-      {_comparison_issue_list(items, prefix)}
+      {_comparison_issue_list(items, prefix, display_numbers)}
     """
 
 
@@ -462,20 +484,55 @@ def _comparison_shared_issues(comparison: dict[str, Any]) -> list[dict[str, Any]
     )
 
 
+def _comparison_issue_key(item: dict[str, Any]) -> tuple[str, str, str]:
+    return (
+        str(item.get("id") or ""),
+        str(item.get("location") or ""),
+        str(item.get("current_observation") or item.get("summary") or ""),
+    )
+
+
 def _unique_comparison_issues(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     unique: list[dict[str, Any]] = []
     seen: set[tuple[str, str, str]] = set()
     for item in items:
-        key = (
-            str(item.get("id") or ""),
-            str(item.get("location") or ""),
-            str(item.get("current_observation") or item.get("summary") or ""),
-        )
+        key = _comparison_issue_key(item)
         if key in seen:
             continue
         seen.add(key)
         unique.append(item)
     return unique
+
+
+def _model_weight_display_numbers(
+    comparison: dict[str, Any] | None,
+) -> dict[tuple[str, str, str], str]:
+    if not comparison:
+        return {}
+
+    models = comparison.get("models") or []
+    model_a_name = str(models[0]) if len(models) >= 1 else "模型 A"
+    model_b_name = str(models[1]) if len(models) >= 2 else "模型 B"
+    model_a_issues = _unique_comparison_issues(
+        _comparison_shared_issues(comparison)
+        + _comparison_model_issues(
+            comparison,
+            model_a_name,
+            ["gpt_only_issues", "primary_only_issues"],
+        )
+    )
+    model_b_issues = _comparison_model_issues(
+        comparison,
+        model_b_name,
+        ["kimi_only_issues", "candidate_only_issues"],
+    )
+
+    display_numbers: dict[tuple[str, str, str], str] = {}
+    for index, item in enumerate(model_a_issues, start=1):
+        display_numbers[_comparison_issue_key(item)] = f"ISSUE-G-{index:02d}"
+    for index, item in enumerate(model_b_issues, start=1):
+        display_numbers[_comparison_issue_key(item)] = f"ISSUE-K-{index:02d}"
+    return display_numbers
 
 
 def _model_comparison(comparison: dict[str, Any] | None) -> str:
@@ -492,11 +549,17 @@ def _model_comparison(comparison: dict[str, Any] | None) -> str:
         model_a_name,
         ["gpt_only_issues", "primary_only_issues"],
     )
-    model_b_issues = _unique_comparison_issues(comparison.get("kimi_only_issues") or [])
+    model_b_issues = _comparison_model_issues(
+        comparison,
+        model_b_name,
+        ["kimi_only_issues", "candidate_only_issues"],
+    )
     explicit_model_a_count = len(comparison.get("gpt_only_issues") or []) + len(
         comparison.get("primary_only_issues") or []
     )
-    explicit_model_b_count = len(comparison.get("kimi_only_issues") or [])
+    explicit_model_b_count = len(comparison.get("kimi_only_issues") or []) + len(
+        comparison.get("candidate_only_issues") or []
+    )
     agreed_count = len(comparison.get("agreed_issues") or []) + len(
         comparison.get("promoted_issues") or []
     )
@@ -506,6 +569,7 @@ def _model_comparison(comparison: dict[str, Any] | None) -> str:
         comparison.get("review_candidates") or []
     )
     model_b_weight_items = _unique_comparison_issues(model_b_issues + review_items)
+    display_numbers = _model_weight_display_numbers(comparison)
 
     return f"""
       <details class="model-moe report-details">
@@ -513,9 +577,9 @@ def _model_comparison(comparison: dict[str, Any] | None) -> str:
       <p class="meta">参与模型：{_text(model_names)}</p>
       <p class="meta">合并后问题总数：{_text(total_count)}；双方一致：{_text(agreed_count)}；单模型补充：{_text(supplemental_count)}。详细问题以合并后的完整问题清单为准。</p>
 
-      {_comparison_issue_section("双权重", shared_issues, show_empty=True)}
-      {_comparison_issue_section("G 权重", model_a_issues, "G")}
-      {_comparison_issue_section("K 权重", model_b_weight_items, "K")}
+      {_comparison_issue_section("双权重", shared_issues, show_empty=True, display_numbers=display_numbers)}
+      {_comparison_issue_section("G 权重", model_a_issues, "G", display_numbers=display_numbers)}
+      {_comparison_issue_section("K 权重", model_b_weight_items, "K", display_numbers=display_numbers)}
       </details>
     """
 
@@ -655,7 +719,13 @@ def _image_section(
         else ""
     )
     issues = [issue for issue in audit.get("issues", []) if isinstance(issue, dict)]
-    issue_screenshots = _issue_screenshot_context(issues, artifacts, task_id)
+    display_numbers = _model_weight_display_numbers(audit.get("model_comparison"))
+    issue_screenshots = _issue_screenshot_context(
+        issues,
+        artifacts,
+        task_id,
+        display_numbers,
+    )
     evidence_links = [
         _artifact_link("颜色证据", artifacts.get("tokens"), task_id),
         _artifact_link("测量证据", artifacts.get("measurements"), task_id),
@@ -686,6 +756,7 @@ def _image_section(
         issue_screenshots,
         modal_prefix=f"image-{index}",
         spec_asset_index_path=result_spec_asset_index_path,
+        display_numbers=display_numbers,
       )}
       {_rule_warnings(audit.get("rule_warnings", []))}
 

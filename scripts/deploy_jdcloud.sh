@@ -69,6 +69,7 @@ make_archive() {
     LC_ALL=C COPYFILE_DISABLE=1 tar \
       --format=ustar \
       --exclude=.git \
+      --exclude=.deploy \
       --exclude=.venv \
       --exclude='.venv.bak-*' \
       --exclude=data \
