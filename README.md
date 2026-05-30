@@ -38,6 +38,8 @@ Do not commit `.env`.
 
 Use one worker in phase 1. The task runner is in-process, so multiple web workers would need an external queue.
 
+This project is not a separate frontend/backend dev-server setup. HTML pages, static assets, and API routes are served by the same FastAPI process. The fixed local frontend and backend port is `8011`.
+
 For local development on this machine:
 
 ```bash
@@ -48,7 +50,7 @@ npm run status
 npm run logs
 ```
 
-The default local URL is `http://127.0.0.1:8010/`.
+The fixed local URL is `http://127.0.0.1:8011/`.
 
 ```bash
 uvicorn app.main:create_app --factory --host 0.0.0.0 --port 8000 --workers 1

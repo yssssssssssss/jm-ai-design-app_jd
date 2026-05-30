@@ -53,9 +53,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         max_age=60 * 60 * 12,
     )
 
-    from app.routes import admin, auth, tasks
+    from app.routes import admin, auth, spec_search, tasks
 
     app.include_router(auth.router)
+    app.include_router(spec_search.router)
     app.include_router(tasks.router)
     app.include_router(admin.router)
     return app

@@ -29,5 +29,5 @@
 
 ## Local Service
 
-- The app is commonly run on `http://127.0.0.1:8010/login`.
-- Existing tmux session name used during this task: `jm-ai-design-8010`.
+- The app is a single-port FastAPI service: frontend pages, static assets, and backend API routes all run on `http://127.0.0.1:8011/`.
+- Local tmux session name: `jm-ai-design-8011`.

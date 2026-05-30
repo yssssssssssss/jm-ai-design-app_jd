@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{ title or "AI设计规范审核" }}</title>
-  <link rel="stylesheet" href="{{ url_for('static', path='app.css') }}?v=20260508-9">
+  <title>AI 规范审查</title>
+  <link rel="stylesheet" href="{{ url_for('static', path='app.css') }}?v=20260528-6">
 </head>
 <body>
   {% if user %}
@@ -12,7 +12,10 @@
     <aside class="sidebar" aria-label="应用导航">
       <div class="sidebar-top">
         <a class="brand" href="/">AI设计规范审核</a>
-        <a class="new-task-shortcut {{ 'is-active' if nav_active == 'new' else '' }}" href="/">新建任务</a>
+        <nav class="mode-nav" aria-label="主要功能">
+          <a class="mode-nav-item {{ 'is-active' if nav_active == 'new' else '' }}" href="/">规范审核</a>
+          <a class="mode-nav-item {{ 'is-active' if nav_active == 'spec-search' else '' }}" href="/spec-search">规范搜索</a>
+        </nav>
       </div>
       <nav class="side-nav" aria-label="任务导航">
         <a class="side-nav-item {{ 'is-active' if nav_active == 'running' else '' }}" href="/tasks/running">正在进行</a>

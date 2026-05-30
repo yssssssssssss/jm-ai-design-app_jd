@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="spec-chat" data-spec-search data-max-query-length="{{ max_query_length }}">
+  <header class="spec-chat-header">
+    <p class="eyebrow">Spec Search</p>
+    <h1>规范搜索</h1>
+    <p>直接询问设计规范，系统会返回匹配的文本片段和相关素材。</p>
+  </header>
+
+  <div class="spec-chat-stream" id="spec-chat-stream" aria-live="polite">
+    <article class="chat-message chat-message-assistant">
+      <div class="chat-avatar">AI</div>
+      <div class="chat-bubble">
+        <p>可以问我规范里的具体要求，例如「底部导航栏坑位数量」「任务规划组件状态」「AI 按钮颜色」。</p>
+      </div>
+    </article>
+  </div>
+
+  <form class="spec-chat-composer" id="spec-search-form" action="/spec-search/query" method="post">
+    <label class="sr-only" for="spec-search-input">输入规范问题</label>
+    <textarea
+      id="spec-search-input"
+      name="query"
+      rows="1"
+      maxlength="{{ max_query_length }}"
+      placeholder="搜索设计规范..."
+      required
+    ></textarea>
+    <button type="submit">发送</button>
+  </form>
+  <button class="back-to-top" id="spec-back-to-top" type="button" aria-label="返回页面顶部">↑</button>
+</section>
+<script src="/static/app.js"></script>
+{% endblock %}

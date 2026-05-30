@@ -2,15 +2,19 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SESSION_NAME="${JM_AI_TMUX_SESSION:-jm-ai-design-8010}"
-HOST="${JM_AI_HOST:-127.0.0.1}"
-PORT="${JM_AI_PORT:-8010}"
-APP_TARGET="${JM_AI_APP:-app.main:create_app}"
+SESSION_NAME="jm-ai-design-8011"
+HOST="127.0.0.1"
+PORT="8011"
+APP_TARGET="app.main:create_app"
 LOG_LINES="${JM_AI_LOG_LINES:-80}"
 ACTION="${1:-start}"
+UV_BIN="${JM_AI_UV:-uv}"
+DEFAULT_PYTHON="/opt/homebrew/bin/python3.11"
 
 if [ -n "${JM_AI_PYTHON:-}" ]; then
   PYTHON_BIN="$JM_AI_PYTHON"
+elif [ -x "$DEFAULT_PYTHON" ]; then
+  PYTHON_BIN="$DEFAULT_PYTHON"
 elif [ -x "$ROOT_DIR/.venv/bin/python" ]; then
   PYTHON_BIN="$ROOT_DIR/.venv/bin/python"
 elif [ -x "/tmp/jm-checktool-py311/bin/python" ]; then
@@ -65,21 +69,26 @@ start_service() {
     exit 1
   fi
 
+  if ! command -v "$UV_BIN" >/dev/null 2>&1; then
+    echo "uv is required to start the local service." >&2
+    echo "Set JM_AI_UV to the uv executable path if it is not on PATH." >&2
+    exit 1
+  fi
   if [ ! -x "$PYTHON_BIN" ]; then
     echo "Python runtime not found or not executable: $PYTHON_BIN" >&2
     exit 1
   fi
-  if ! "$PYTHON_BIN" - <<'PY' >/dev/null 2>&1
+  if ! "$UV_BIN" run --extra dev --python "$PYTHON_BIN" python - <<'PY' >/dev/null 2>&1
 import uvicorn
 PY
   then
-    echo "Python runtime cannot import uvicorn: $PYTHON_BIN" >&2
-    echo "Set JM_AI_PYTHON to a project environment with dependencies installed." >&2
+    echo "uv cannot run the project with Python runtime: $PYTHON_BIN" >&2
+    echo "Set JM_AI_PYTHON to a compatible Python 3.11 executable." >&2
     exit 1
   fi
 
   local command
-  command="PYTHONPATH=. \"$PYTHON_BIN\" -m uvicorn \"$APP_TARGET\" --factory --host \"$HOST\" --port \"$PORT\" --workers 1 --log-level info"
+  command="PYTHONPATH=. \"$UV_BIN\" run --extra dev --python \"$PYTHON_BIN\" uvicorn \"$APP_TARGET\" --factory --host \"$HOST\" --port \"$PORT\" --workers 1 --log-level info"
   tmux new-session -d -s "$SESSION_NAME" -c "$ROOT_DIR" "$command"
   sleep 2
   print_status
