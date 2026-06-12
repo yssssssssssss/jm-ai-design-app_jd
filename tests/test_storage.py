@@ -176,3 +176,27 @@ def test_save_upload_file_enforces_size_limit(tmp_path):
         assert not output.exists()
     else:
         raise AssertionError("oversized stream should fail")
+
+
+def test_save_upload_file_rejects_large_stream_before_extra_chunks(tmp_path):
+    settings = _settings(tmp_path)
+    output = tmp_path / "out.png"
+
+    class FileObj:
+        def __init__(self):
+            self.calls = 0
+
+        def read(self, size=-1):
+            self.calls += 1
+            return b"x" * (settings.max_upload_mb_per_file * 1024 * 1024 + 1)
+
+    file_obj = FileObj()
+
+    try:
+        save_upload_file(settings, file_obj, output)
+    except UploadValidationError as exc:
+        assert "单张图片不能超过" in str(exc)
+        assert file_obj.calls == 1
+        assert not output.exists()
+    else:
+        raise AssertionError("oversized stream should fail immediately")

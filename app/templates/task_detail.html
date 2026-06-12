@@ -3,14 +3,18 @@
 {% block content %}
 <section class="panel" data-task-id="{{ task.id }}">
   <p class="page-action">
-    <a href="{{ '/tasks/running' if task.status in ['queued', 'running'] else '/tasks' }}">
-      返回{{ "正在进行" if task.status in ["queued", "running"] else "历史任务" }}
-    </a>
+    <a id="task-back-link" href="{{ back_link.href }}">{{ back_link.label }}</a>
   </p>
   <dl class="task-meta">
     <div>
       <dt>状态</dt>
-      <dd><span id="task-status" class="status status-{{ task.status }}">{{ task.status }}</span></dd>
+      <dd>
+        <span
+          id="task-status"
+          class="status status-{{ task.status }}"
+          data-task-status-value="{{ task.status }}"
+        >{{ task.status | task_status_label }}</span>
+      </dd>
     </div>
     <div>
       <dt>图片数</dt>
@@ -43,18 +47,21 @@
       <dd>{{ task.created_at or "-" }}</dd>
     </div>
   </dl>
-  {% if task.summary %}
-    <p>{{ task.summary }}</p>
-  {% endif %}
-  {% if task.error_message %}
-    <p class="error">{{ task.error_message }}</p>
-  {% endif %}
-  {% if task.report_path %}
-    <p>
-      <a href="/tasks/{{ task.id }}/report.html">查看 HTML 报告</a>
-      <a href="/tasks/{{ task.id }}/report.pdf">下载 PDF</a>
-    </p>
-  {% endif %}
+  <p id="task-summary" {% if not task.summary %}hidden{% endif %}>{{ task.summary or "" }}</p>
+  <p id="task-error" class="error" {% if not task.error_message %}hidden{% endif %}>{{ task.error_message or "" }}</p>
+  <div
+    id="task-failure-actions"
+    class="task-actions"
+    {% if not failure_actions %}hidden{% endif %}
+  >
+    {% for action in failure_actions %}
+      <a class="task-action-link" href="{{ action.href }}">{{ action.label }}</a>
+    {% endfor %}
+  </div>
+  <p id="task-report-links" {% if not task.report_path %}hidden{% endif %}>
+    <a href="/tasks/{{ task.id }}/report.html">查看 HTML 报告</a>
+    <a href="/tasks/{{ task.id }}/report.pdf">下载 PDF</a>
+  </p>
 
   <h2>图片</h2>
   <div class="table-wrap">
@@ -68,15 +75,19 @@
       </thead>
       <tbody id="image-statuses">
         {% for image in images %}
-          <tr>
+          <tr data-image-id="{{ image.id }}">
             <td>{{ image.filename }}</td>
-            <td><span class="status status-{{ image.status }}">{{ image.status }}</span></td>
-            <td>{{ image.error_message or "-" }}</td>
+            <td>
+              <span class="status status-{{ image.status }}">
+                {{ image.status | task_status_label }}
+              </span>
+            </td>
+            <td data-image-error>{{ image.error_message or "-" }}</td>
           </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
 </section>
-<script src="/static/app.js"></script>
+<script src="{{ url_for('static', path='app.js') }}?v={{ static_asset_version }}" defer></script>
 {% endblock %}

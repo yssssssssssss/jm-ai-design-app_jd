@@ -47,6 +47,7 @@ npm start
 npm stop
 npm restart
 npm run status
+npm run health
 npm run logs
 ```
 
@@ -67,14 +68,30 @@ The initial admin account is created from `INITIAL_ADMIN_USERNAME` and `INITIAL_
 ## Test
 
 ```bash
-pytest -q
+file .venv/bin/python
+.venv/bin/python -m pytest -q
 ```
 
-If local pytest crashes during readline import in this environment, use:
+For the local pre-handoff check, run:
 
 ```bash
-PYTHONPATH=/private/tmp/pytest-no-readline:. .venv/bin/python -m pytest -q
+npm run verify
 ```
+
+`npm run verify` checks the Python runtime architecture, validates `app/static/app.js`, compiles `app/`, runs the full pytest suite, and runs `git diff --check`.
+
+On Apple Silicon, do not claim full pytest passed unless `.venv/bin/python` is native `arm64`.
+
+## Runtime Contracts
+
+- `/healthz` returns database schema, worker state, and queue job counts.
+- SQLite runs with WAL mode and a busy timeout; interrupted queued/running jobs are recovered on startup.
+- `审核规范` is a checkbox multi-select. Nothing is selected by default, and submitting without a selected spec is rejected.
+- Multi-spec audits store comma-separated ids in `tasks.audit_spec_id` and render isolated per-spec report sections.
+- Task detail pages poll `/tasks/{id}/status`; running task lists poll `/tasks/running/status`.
+- Failed task detail responses include failure actions for returning to the upload flow.
+- HTML reports are reused when audit artifacts have not changed; PDF reports are reused when the renderer version and report freshness match.
+- History renders the most recent 100 tasks to avoid unbounded list pages.
 
 ## Storage
 

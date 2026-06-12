@@ -51,7 +51,20 @@ print_status() {
 health_check() {
   curl -sS -o /tmp/jm-ai-design-"$PORT"-health.html \
     -w "HTTP %{http_code}\n" \
-    "http://$HOST:$PORT/"
+    "http://$HOST:$PORT/healthz"
+}
+
+verify_project() {
+  cd "$ROOT_DIR"
+  if [ ! -x "$ROOT_DIR/.venv/bin/python" ]; then
+    echo ".venv/bin/python is required for verification." >&2
+    exit 1
+  fi
+  file "$ROOT_DIR/.venv/bin/python"
+  node --check app/static/app.js
+  "$ROOT_DIR/.venv/bin/python" -m compileall -q app
+  "$ROOT_DIR/.venv/bin/python" -m pytest -q
+  git diff --check
 }
 
 start_service() {
@@ -132,11 +145,14 @@ case "$ACTION" in
   health)
     health_check
     ;;
+  verify)
+    verify_project
+    ;;
   logs)
     show_logs
     ;;
   *)
-    echo "Usage: npm run {start|stop|restart|status|health|logs}" >&2
+    echo "Usage: npm run {start|stop|restart|status|health|verify|logs}" >&2
     exit 2
     ;;
 esac

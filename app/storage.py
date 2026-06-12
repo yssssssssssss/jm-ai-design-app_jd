@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
+import shutil
 
 from app.config import Settings
 
@@ -88,6 +89,14 @@ def ensure_task_dirs(settings: Settings, task_id: int) -> TaskDirs:
         report=root / "report.html",
         pdf_report=root / "report.pdf",
     )
+
+
+def task_root(settings: Settings, task_id: int) -> Path:
+    return settings.uploads_dir / str(task_id)
+
+
+def remove_tree(path: Path) -> None:
+    shutil.rmtree(path, ignore_errors=True)
 
 
 def relative_to_data(settings: Settings, path: Path) -> str:

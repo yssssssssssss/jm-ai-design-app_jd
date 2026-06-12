@@ -9,6 +9,7 @@ from typing import Any
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 SPEC_ASSET_INDEX = ROOT_DIR / "references" / "spec-assets.json"
+REPORT_RENDERER_VERSION = "2026-05-31-task-report-v1"
 COMMON_ENGLISH_REPLACEMENTS = [
     ("JM AI color token", "规范色彩令牌"),
     ("color token", "色彩令牌"),
@@ -918,6 +919,7 @@ def render_report_html(
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
+  <meta name="jm-report-renderer" content="{REPORT_RENDERER_VERSION}">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{_text(audit_spec_label)}审核报告</title>
   <style>

@@ -12,11 +12,31 @@
     <p class="error">{{ error }}</p>
   {% endif %}
 
-  <form class="audit-composer" method="post" action="/tasks" enctype="multipart/form-data">
+  <form
+    class="audit-composer"
+    id="audit-composer"
+    method="post"
+    action="/tasks"
+    enctype="multipart/form-data"
+    data-max-upload-files="{{ max_upload_files }}"
+    data-max-upload-mb-per-file="{{ max_upload_mb_per_file }}"
+    novalidate
+  >
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <p
+      class="error"
+      id="upload-client-error"
+      role="alert"
+      data-message-no-spec="请选择至少一个审核规范"
+      data-message-no-file="请至少上传 1 张图片"
+      data-message-too-many-files="最多上传 {{ max_upload_files }} 张图片"
+      data-message-bad-file="仅支持 PNG/JPG/JPEG/WEBP 图片"
+      data-message-too-large-file="单张图片不能超过 {{ max_upload_mb_per_file }}MB"
+      hidden
+    ></p>
     <label class="composer-title">
       <span>任务标题</span>
-      <input name="title" required value="JM AI 设计审核" aria-label="任务标题">
+      <input name="title" required value="{{ form_title or 'JM AI 设计审核' }}" aria-label="任务标题">
     </label>
     <fieldset class="audit-spec-field">
       <legend>审核规范</legend>
@@ -33,7 +53,17 @@
           </label>
         {% endfor %}
       </div>
+      {% if field_errors and field_errors.audit_spec_ids %}
+        <p class="field-error" data-field-error="audit_spec_ids">{{ field_errors.audit_spec_ids }}</p>
+      {% endif %}
     </fieldset>
+    {% if form_screen_width_px is defined or form_screen_height_px is defined %}
+      <input type="hidden" name="screen_width_px" value="{{ form_screen_width_px or '' }}">
+      <input type="hidden" name="screen_height_px" value="{{ form_screen_height_px or '' }}">
+      {% if field_errors and field_errors.screen_size %}
+        <p class="field-error" data-field-error="screen_size">{{ field_errors.screen_size }}</p>
+      {% endif %}
+    {% endif %}
     <div class="upload-block">
       <div class="upload-header">
         <span class="upload-title">上传文件</span>
@@ -50,13 +80,20 @@
         >
         <button class="file-picker-button" id="file-picker-button" type="button">选择文件</button>
       </div>
+      {% if field_errors and field_errors.files %}
+        <p class="field-error" data-field-error="files">{{ field_errors.files }}</p>
+      {% endif %}
     </div>
     <ul class="file-list" id="selected-files"></ul>
     <div class="composer-actions">
       <span>任务提交后会出现在“正在进行”。完成后进入“历史任务”。</span>
-      <button type="submit">提交审核</button>
+      <button
+        id="submit-task-button"
+        type="submit"
+        data-pending-text="提交中..."
+      >提交审核</button>
     </div>
   </form>
 </section>
-<script src="/static/app.js"></script>
+<script src="{{ url_for('static', path='app.js') }}?v={{ static_asset_version }}" defer></script>
 {% endblock %}

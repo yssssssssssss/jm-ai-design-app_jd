@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Reusable deployment script for the JDCloud single-port server.
+# Reusable deployment script for the cloud single-port server.
 #
 # Defaults are intentionally concrete so the command is repeatable:
-#   server: root@xy1-gcs.jdcloud.com:20151
+#   server: root@45.205.27.116:22
 #   app port: 7860
 #   remote app dir: /opt/jm-ai-design-app_jd
 #
@@ -12,8 +12,8 @@ set -euo pipefail
 # ~/.ssh/config, or an SSH key.
 
 SSH_USER="${SSH_USER:-root}"
-SSH_HOST="${SSH_HOST:-xy1-gcs.jdcloud.com}"
-SSH_PORT="${SSH_PORT:-20151}"
+SSH_HOST="${SSH_HOST:-45.205.27.116}"
+SSH_PORT="${SSH_PORT:-22}"
 APP_PORT="${APP_PORT:-7860}"
 REMOTE_APP="${REMOTE_APP:-/opt/jm-ai-design-app_jd}"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
@@ -49,6 +49,7 @@ Defaults:
   APP_PORT=$APP_PORT
 
 Override with environment variables, for example:
+  scripts/deploy_jdcloud.sh deploy
   SSH_HOST=example.com APP_PORT=7860 scripts/deploy_jdcloud.sh deploy
 
 Notes:
@@ -70,6 +71,7 @@ make_archive() {
       --format=ustar \
       --exclude=.git \
       --exclude=.deploy \
+      --exclude=.superpowers \
       --exclude=.venv \
       --exclude='.venv.bak-*' \
       --exclude=data \
@@ -135,7 +137,7 @@ if [ ! -d "$APP/venv" ]; then
   if ! "$PYTHON_BIN" -m venv "$APP/venv"; then
     if command -v apt-get >/dev/null 2>&1; then
       apt-get update
-      DEBIAN_FRONTEND=noninteractive apt-get install -y python3.10-venv
+      DEBIAN_FRONTEND=noninteractive apt-get install -y python3-venv
       "$PYTHON_BIN" -m venv "$APP/venv"
     else
       echo "Failed to create venv and apt-get is not available." >&2
@@ -194,8 +196,10 @@ else
   echo "pid: none"
 fi
 lsof -nP -iTCP:"\$APP_PORT" -sTCP:LISTEN || true
-HTTP_CODE="\$(curl -sS -o /tmp/${APP_NAME}-health.html -w '%{http_code}' "http://127.0.0.1:\$APP_PORT/" || true)"
-echo "local_http: \$HTTP_CODE"
+ROOT_HTTP_CODE="\$(curl -sS -o /tmp/${APP_NAME}-root.html -w '%{http_code}' "http://127.0.0.1:\$APP_PORT/" || true)"
+HEALTH_HTTP_CODE="\$(curl -sS -o /tmp/${APP_NAME}-health.json -w '%{http_code}' "http://127.0.0.1:\$APP_PORT/healthz" || true)"
+echo "root_http: \$ROOT_HTTP_CODE"
+echo "healthz_http: \$HEALTH_HTTP_CODE"
 STATUS_SCRIPT
 
 chmod +x "$APP/start.sh" "$APP/stop.sh" "$APP/status.sh"
@@ -219,18 +223,25 @@ if ! kill -0 "$PID" >/dev/null 2>&1; then
   exit 1
 fi
 
-HTTP_CODE="$(curl -sS -o /tmp/${APP_NAME}-health.html -w '%{http_code}' "http://127.0.0.1:$APP_PORT/" || true)"
-case "$HTTP_CODE" in
+ROOT_HTTP_CODE="$(curl -sS -o /tmp/${APP_NAME}-root.html -w '%{http_code}' "http://127.0.0.1:$APP_PORT/" || true)"
+case "$ROOT_HTTP_CODE" in
   200|302|303|405) ;;
   *)
-    echo "Unexpected local health HTTP status: $HTTP_CODE" >&2
+    echo "Unexpected local root HTTP status: $ROOT_HTTP_CODE" >&2
     tail -120 "$APP/app.log" >&2 || true
     exit 1
     ;;
 esac
+HEALTH_HTTP_CODE="$(curl -sS -o /tmp/${APP_NAME}-health.json -w '%{http_code}' "http://127.0.0.1:$APP_PORT/healthz" || true)"
+if [ "$HEALTH_HTTP_CODE" != "200" ]; then
+  echo "Unexpected local /healthz HTTP status: $HEALTH_HTTP_CODE" >&2
+  tail -120 "$APP/app.log" >&2 || true
+  exit 1
+fi
 
 lsof -nP -iTCP:"$APP_PORT" -sTCP:LISTEN
-echo "local_http=$HTTP_CODE"
+echo "root_http=$ROOT_HTTP_CODE"
+echo "healthz_http=$HEALTH_HTTP_CODE"
 echo "deployed_release=$RELEASE"
 echo "pid=$PID"
 REMOTE_SCRIPT
@@ -257,7 +268,7 @@ remote_control() {
       ssh_remote "if [ -x '$REMOTE_APP/stop.sh' ]; then '$REMOTE_APP/stop.sh'; fi; nohup '$REMOTE_APP/start.sh' > '$REMOTE_APP/app.log' 2>&1 & echo \$! > '$REMOTE_APP/app.pid'; sleep 2; '$REMOTE_APP/status.sh'"
       ;;
     health)
-      ssh_remote "curl -sS -o /tmp/${APP_NAME}-health.html -w 'HTTP %{http_code}\n' 'http://127.0.0.1:$APP_PORT/'"
+      ssh_remote "curl -sS -o /tmp/${APP_NAME}-health.json -w 'HTTP %{http_code}\n' 'http://127.0.0.1:$APP_PORT/healthz'"
       ;;
   esac
 }

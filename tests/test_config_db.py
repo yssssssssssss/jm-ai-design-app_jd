@@ -391,11 +391,32 @@ def test_init_db_creates_core_tables(tmp_path):
         ).fetchall()
     }
 
-    assert {"users", "tasks", "task_images"}.issubset(tables)
+    assert {"users", "tasks", "task_images", "task_jobs"}.issubset(tables)
     task_columns = {
         row["name"] for row in conn.execute("pragma table_info(tasks)").fetchall()
     }
     assert {"screen_width_px", "screen_height_px"}.issubset(task_columns)
+    job_columns = {
+        row["name"] for row in conn.execute("pragma table_info(task_jobs)").fetchall()
+    }
+    assert {
+        "task_id",
+        "status",
+        "attempts",
+        "locked_at",
+        "locked_by",
+        "error_message",
+    }.issubset(job_columns)
+
+
+def test_connect_enables_wal_and_busy_timeout(tmp_path):
+    conn = connect(tmp_path / "app.db")
+
+    journal_mode = conn.execute("pragma journal_mode").fetchone()[0]
+    busy_timeout = conn.execute("pragma busy_timeout").fetchone()[0]
+
+    assert journal_mode == "wal"
+    assert busy_timeout >= 5000
 
 
 def test_init_db_sets_schema_version_and_is_idempotent(tmp_path):

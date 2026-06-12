@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import json
+import logging
 from sqlite3 import Connection
 
 from fastapi import APIRouter, File, Form, Request, UploadFile
@@ -10,10 +10,10 @@ from app.db import connect
 from app.main import ensure_csrf, templates
 from app.models import User
 from app.pdf_renderer import PdfRenderError, is_current_report_pdf, render_report_pdf
-from app.report_renderer import render_report_html
 from app.repositories import (
     add_task_image,
     create_task,
+    create_task_job,
     get_task_by_id,
     get_user_by_id,
     list_active_tasks_for_user,
@@ -24,29 +24,33 @@ from app.repositories import (
     mark_task_report_read,
     user_can_access_task,
 )
-from app.security import CsrfError, ForbiddenError, require_login, verify_csrf
-from app.spec_registry import (
-    DEFAULT_SPEC_ID,
-    get_audit_spec,
-    get_audit_specs,
-    list_audit_specs,
-    serialize_audit_spec_ids,
-    validate_audit_spec_ids,
-)
+from app.security import CsrfError, ForbiddenError, new_csrf_token, require_login, verify_csrf
+from app.spec_registry import get_audit_specs, list_audit_specs
 from app.storage import (
     UploadValidationError,
     ensure_task_dirs,
     relative_to_data,
+    remove_tree,
     resolve_data_path,
     safe_artifact_path,
     save_upload_file,
     stored_image_name,
-    validate_upload_batch,
+    task_root,
 )
-from app.task_queue import enqueue_task
+from app.task_reports import current_report_html
+from app.task_presenters import (
+    running_task_payload,
+    task_back_link,
+    task_failure_actions,
+    task_status_payload,
+)
+from app.task_queue import start_worker
+from app.upload_validation import validate_upload_form
 
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+HISTORY_TASK_LIMIT = 100
 
 
 def _current_user_and_conn(request: Request) -> tuple[User, Connection]:
@@ -72,26 +76,69 @@ def _has_history_updates(conn: Connection, user: User) -> bool:
     return bool(list_unread_successful_task_ids_for_user(conn, user))
 
 
-def _validate_screen_size(
-    width: str | None,
-    height: str | None,
-) -> tuple[int | None, int | None]:
-    width_value = (width or "").strip()
-    height_value = (height or "").strip()
-    if not width_value and not height_value:
-        return None, None
-    if not width_value or not height_value:
-        raise UploadValidationError("截图宽度和高度需要同时填写")
-    try:
-        parsed_width = int(width_value)
-        parsed_height = int(height_value)
-    except ValueError:
-        raise UploadValidationError("截图宽度和高度必须填写整数")
-    if str(parsed_width) != width_value or str(parsed_height) != height_value:
-        raise UploadValidationError("截图宽度和高度必须填写整数")
-    if not 1 <= parsed_width <= 20000 or not 1 <= parsed_height <= 20000:
-        raise UploadValidationError("截图宽度和高度必须在 1 到 20000 px 之间")
-    return parsed_width, parsed_height
+def _selected_audit_spec_ids(
+    audit_spec_ids: list[str] | None,
+    audit_spec_id: str | None,
+) -> list[str]:
+    raw_values = audit_spec_ids or ([audit_spec_id] if audit_spec_id else [])
+    selected = []
+    for raw in raw_values:
+        for part in str(raw or "").split(","):
+            spec_id = part.strip()
+            if spec_id and spec_id not in selected:
+                selected.append(spec_id)
+    return selected
+
+
+def _upload_error_field(message: str) -> str:
+    if message in {"请选择至少一个审核规范", "未知审核规范"}:
+        return "audit_spec_ids"
+    if message.startswith("截图宽度和高度") or "px" in message:
+        return "screen_size"
+    if "上传" in message or "图片" in message:
+        return "files"
+    return "form"
+
+
+def _upload_form_response(
+    request: Request,
+    conn: Connection,
+    user: User,
+    *,
+    title: str,
+    audit_spec_ids: list[str] | None,
+    audit_spec_id: str | None,
+    screen_width_px: str | None,
+    screen_height_px: str | None,
+    error: str,
+) -> HTMLResponse:
+    field = _upload_error_field(error)
+    field_errors = {field: error} if field != "form" else {}
+    return templates.TemplateResponse(
+        request,
+        "upload.html",
+        {
+            "user": user,
+            "csrf_token": ensure_csrf(request),
+            "audit_specs": list_audit_specs(),
+            "selected_audit_spec_ids": _selected_audit_spec_ids(
+                audit_spec_ids,
+                audit_spec_id,
+            ),
+            "max_upload_files": request.app.state.settings.max_upload_files,
+            "max_upload_mb_per_file": request.app.state.settings.max_upload_mb_per_file,
+            "error": error if field == "form" else None,
+            "field_errors": field_errors,
+            "form_title": title,
+            "form_screen_width_px": screen_width_px or "",
+            "form_screen_height_px": screen_height_px or "",
+            "title": "新建任务",
+            "nav_active": "new",
+            "hide_page_title": True,
+            "has_history_updates": _has_history_updates(conn, user),
+        },
+        status_code=400,
+    )
 
 
 def _authorized_task(request: Request, task_id: int):
@@ -105,217 +152,35 @@ def _authorized_task(request: Request, task_id: int):
         conn.close()
 
 
-def _authorized_report_path(request: Request, task_id: int):
+def _report_context(request: Request, task_id: int, *, mark_read: bool = False):
     user, conn = _current_user_and_conn(request)
     try:
         task = get_task_by_id(conn, task_id)
         if task is None or not user_can_access_task(user, task):
-            return None, None, None, _error_response("Forbidden", status_code=403)
+            return None, None, None, None, _error_response("Forbidden", status_code=403)
         if not task.report_path:
-            return user, task, None, _error_response("Report not ready", status_code=404)
+            return user, task, None, None, _error_response(
+                "Report not ready", status_code=404
+            )
 
         try:
             path = resolve_data_path(request.app.state.settings, task.report_path)
         except UploadValidationError:
-            return user, task, None, _error_response("非法文件路径", status_code=400)
+            return user, task, None, None, _error_response("非法文件路径", status_code=400)
         if not path.exists() or not path.is_file():
-            return user, task, path, _error_response("Report not found", status_code=404)
-        return user, task, path, None
-    finally:
-        conn.close()
-
-
-def _html_report_with_pdf_link(path, task_id: int) -> str:
-    html = path.read_text(encoding="utf-8")
-    pdf_href = f"/tasks/{task_id}/report.pdf"
-    if pdf_href in html:
-        return html
-
-    back_link = '<a class="back-link" href="/tasks">返回</a>'
-    if back_link in html:
-        return html.replace(
-            back_link,
-            f'{back_link}\n      <a class="back-link" href="{pdf_href}">下载 PDF</a>',
-            1,
-        )
-    return html
-
-
-def _artifact_rel(path: str | None) -> str | None:
-    if not path:
-        return None
-    normalized = path.replace("\\", "/")
-    marker = "/artifacts/"
-    if marker in normalized:
-        return "artifacts/" + normalized.split(marker, 1)[1]
-    if normalized.startswith("artifacts/"):
-        return normalized
-    return normalized
-
-
-def _existing_artifact_rel(settings, path: str | None) -> str | None:
-    if not path:
-        return None
-    try:
-        if not resolve_data_path(settings, path).exists():
-            return None
-    except UploadValidationError:
-        return None
-    return _artifact_rel(path)
-
-
-def _load_json_artifact(settings, relative_path: str | None) -> dict | None:
-    if not relative_path:
-        return None
-    try:
-        path = resolve_data_path(settings, relative_path)
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UploadValidationError, json.JSONDecodeError):
-        return None
-    return data if isinstance(data, dict) else None
-
-
-def _audit_spec_label(specs) -> str:
-    return "、".join(spec.label for spec in specs) if specs else get_audit_spec(None).label
-
-
-def _image_artifact_dirname(sort_order: int) -> str:
-    return f"image-{sort_order + 1:03d}"
-
-
-def _multi_spec_artifact_path(
-    task_id: int,
-    sort_order: int,
-    spec_id: str,
-    filename: str,
-) -> str:
-    image_dir = _image_artifact_dirname(sort_order)
-    return f"uploads/{task_id}/artifacts/{image_dir}/{spec_id}/{filename}"
-
-
-def _legacy_artifact_bundle(settings, image) -> dict:
-    return {
-        "annotated": _artifact_rel(image.annotated_path),
-        "issue_crops": _issue_crop_paths(settings, image.audit_json_path),
-        "tokens": _artifact_rel(image.tokens_path),
-        "measurements": _artifact_rel(image.measurements_path),
-        "issues": _artifact_rel(image.issues_path),
-        "audit_json": _artifact_rel(image.audit_json_path),
-    }
-
-
-def _multi_spec_artifact_bundle(
-    settings,
-    task_id: int,
-    sort_order: int,
-    spec_id: str,
-) -> dict:
-    return {
-        "annotated": _existing_artifact_rel(
-            settings,
-            _multi_spec_artifact_path(task_id, sort_order, spec_id, "annotated.png"),
-        ),
-        "issue_crops": _issue_crop_paths(
-            settings,
-            _multi_spec_artifact_path(task_id, sort_order, spec_id, "audit.json"),
-        ),
-        "tokens": _artifact_rel(
-            _multi_spec_artifact_path(task_id, sort_order, spec_id, "tokens.json")
-        ),
-        "measurements": _artifact_rel(
-            _multi_spec_artifact_path(task_id, sort_order, spec_id, "measurements.json")
-        ),
-        "issues": _artifact_rel(
-            _multi_spec_artifact_path(task_id, sort_order, spec_id, "issues.json")
-        ),
-        "audit_json": _artifact_rel(
-            _multi_spec_artifact_path(task_id, sort_order, spec_id, "audit.json")
-        ),
-    }
-
-
-def _current_report_html(request: Request, task, stored_path) -> str:
-    conn = connect(request.app.state.settings.db_path)
-    try:
+            return user, task, path, None, _error_response(
+                "Report not found", status_code=404
+            )
         images = list_task_images(conn, task.id)
+        if mark_read:
+            mark_task_report_read(conn, user.id, task.id)
+        return user, task, path, images, None
     finally:
         conn.close()
 
-    audit_specs = get_audit_specs(task.audit_spec_id)
-    image_results = []
-    for image in images:
-        if len(audit_specs) == 1:
-            audit = _load_json_artifact(request.app.state.settings, image.audit_json_path)
-            if not audit:
-                continue
-            image_results.append(
-                {
-                    "filename": image.filename,
-                    "audit_spec_label": audit_specs[0].label,
-                    "spec_asset_index_path": audit_specs[0].asset_index_path,
-                    "audit": audit,
-                    "artifacts": _legacy_artifact_bundle(request.app.state.settings, image),
-                }
-            )
-            continue
-        for spec in audit_specs:
-            audit_path = _multi_spec_artifact_path(task.id, image.sort_order, spec.id, "audit.json")
-            audit = _load_json_artifact(request.app.state.settings, audit_path)
-            if not audit:
-                continue
-            image_results.append(
-                {
-                    "filename": image.filename,
-                    "audit_spec_label": spec.label,
-                    "spec_asset_index_path": spec.asset_index_path,
-                    "audit": audit,
-                    "artifacts": _multi_spec_artifact_bundle(
-                        request.app.state.settings,
-                        task.id,
-                        image.sort_order,
-                        spec.id,
-                    ),
-                }
-            )
 
-    if not image_results:
-        return _html_report_with_pdf_link(stored_path, task.id)
-
-    html = render_report_html(
-        {
-            "title": task.title,
-            "summary": task.summary,
-            "audit_spec_label": _audit_spec_label(audit_specs),
-            "screen_width_px": task.screen_width_px,
-            "screen_height_px": task.screen_height_px,
-        },
-        image_results,
-        task_id=task.id,
-    )
-    if stored_path.read_text(encoding="utf-8") != html:
-        stored_path.write_text(html, encoding="utf-8")
-    return html
-
-
-def _issue_crop_paths(settings, anchor_path: str | None) -> list[str]:
-    if not anchor_path:
-        return []
-    try:
-        path = resolve_data_path(settings, anchor_path).parent
-    except UploadValidationError:
-        return []
-    if not path.exists() or not path.is_dir():
-        return []
-    root = settings.data_dir.resolve()
-    paths = []
-    for candidate in sorted(path.glob("issue-*.png")):
-        if not candidate.is_file():
-            continue
-        resolved = candidate.resolve()
-        if root not in resolved.parents and resolved != root:
-            continue
-        paths.append(resolved.relative_to(root).as_posix())
-    return paths
+def _temp_upload_dir(settings, user_id: int) -> Path:
+    return settings.data_dir / "_tmp_uploads" / f"user-{user_id}-{new_csrf_token()}"
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -333,6 +198,8 @@ def upload_page(request: Request):
                 "csrf_token": ensure_csrf(request),
                 "audit_specs": list_audit_specs(),
                 "selected_audit_spec_ids": [],
+                "max_upload_files": request.app.state.settings.max_upload_files,
+                "max_upload_mb_per_file": request.app.state.settings.max_upload_mb_per_file,
                 "error": None,
                 "title": "新建任务",
                 "nav_active": "new",
@@ -360,54 +227,95 @@ async def create_task_route(
     except (ForbiddenError, TypeError, ValueError):
         return _error_response("Login required", status_code=403)
 
+    temp_dir = None
+    task_id_for_cleanup = None
     try:
         try:
             verify_csrf(request.session, csrf_token)
-            if not audit_spec_ids and not audit_spec_id:
-                raise UploadValidationError("请选择至少一个审核规范")
-            selected_audit_spec_ids = validate_audit_spec_ids(
-                audit_spec_ids or audit_spec_id
-            )
-            stored_audit_spec_id = serialize_audit_spec_ids(selected_audit_spec_ids)
-            validate_upload_batch(request.app.state.settings, files)
-            screen_width_px, screen_height_px = _validate_screen_size(
-                screen_width_px,
-                screen_height_px,
+            upload_form = validate_upload_form(
+                settings=request.app.state.settings,
+                title=title,
+                audit_spec_ids=audit_spec_ids,
+                audit_spec_id=audit_spec_id,
+                screen_width_px=screen_width_px,
+                screen_height_px=screen_height_px,
+                files=files,
             )
         except CsrfError:
             return _error_response("Invalid CSRF token")
-        except ValueError:
-            return _error_response("未知审核规范")
         except UploadValidationError as exc:
-            return _error_response(str(exc))
+            return _upload_form_response(
+                request,
+                conn,
+                user,
+                title=title,
+                audit_spec_ids=audit_spec_ids,
+                audit_spec_id=audit_spec_id,
+                screen_width_px=screen_width_px,
+                screen_height_px=screen_height_px,
+                error=str(exc),
+            )
 
-        clean_title = title.strip() or "未命名审核任务"
-        task = create_task(
-            conn,
-            owner_id=user.id,
-            title=clean_title,
-            image_count=len(files),
-            audit_spec_id=stored_audit_spec_id,
-            screen_width_px=screen_width_px,
-            screen_height_px=screen_height_px,
-        )
-        dirs = ensure_task_dirs(request.app.state.settings, task.id)
-
+        temp_dir = _temp_upload_dir(request.app.state.settings, user.id)
+        temp_dir.mkdir(parents=True, exist_ok=False)
+        saved_uploads = []
         for index, upload in enumerate(files):
             filename = stored_image_name(index, upload.filename or "")
-            output_path = dirs.originals / filename
-            save_upload_file(request.app.state.settings, upload.file, output_path)
-            add_task_image(
+            temp_path = temp_dir / filename
+            save_upload_file(request.app.state.settings, upload.file, temp_path)
+            saved_uploads.append((filename, temp_path))
+
+        conn.execute("begin immediate")
+        try:
+            task = create_task(
                 conn,
-                task_id=task.id,
-                filename=filename,
-                original_path=relative_to_data(request.app.state.settings, output_path),
-                sort_order=index,
+                owner_id=user.id,
+                title=upload_form.title,
+                image_count=len(files),
+                audit_spec_id=upload_form.stored_audit_spec_id,
+                screen_width_px=upload_form.screen_width_px,
+                screen_height_px=upload_form.screen_height_px,
+                commit=False,
             )
+            task_id_for_cleanup = task.id
+            dirs = ensure_task_dirs(request.app.state.settings, task.id)
+            for index, (filename, temp_path) in enumerate(saved_uploads):
+                output_path = dirs.originals / filename
+                temp_path.replace(output_path)
+                add_task_image(
+                    conn,
+                    task_id=task.id,
+                    filename=filename,
+                    original_path=relative_to_data(request.app.state.settings, output_path),
+                    sort_order=index,
+                    commit=False,
+                )
+            if request.app.state.settings.enqueue_background_tasks:
+                create_task_job(conn, task.id, commit=False)
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            if temp_dir:
+                remove_tree(temp_dir)
         if request.app.state.settings.enqueue_background_tasks:
-            enqueue_task(request.app.state.settings, task.id)
+            try:
+                start_worker(request.app.state.settings)
+            except Exception:
+                logger.exception("Failed to start audit task worker for task_id=%s", task.id)
     except UploadValidationError as exc:
+        if temp_dir:
+            remove_tree(temp_dir)
+        if task_id_for_cleanup:
+            remove_tree(task_root(request.app.state.settings, task_id_for_cleanup))
         return _error_response(str(exc))
+    except Exception:
+        if temp_dir:
+            remove_tree(temp_dir)
+        if task_id_for_cleanup:
+            remove_tree(task_root(request.app.state.settings, task_id_for_cleanup))
+        return _error_response("上传失败，请重试")
     finally:
         conn.close()
 
@@ -422,13 +330,17 @@ def task_list(request: Request):
         return _redirect_to_login()
     try:
         mark_successful_task_reports_read_for_user(conn, user)
+        tasks = list_tasks_for_user(conn, user, limit=HISTORY_TASK_LIMIT + 1)
+        has_more_tasks = len(tasks) > HISTORY_TASK_LIMIT
         return templates.TemplateResponse(
             request,
             "tasks.html",
             {
                 "user": user,
                 "csrf_token": ensure_csrf(request),
-                "tasks": list_tasks_for_user(conn, user),
+                "tasks": tasks[:HISTORY_TASK_LIMIT],
+                "history_task_limit": HISTORY_TASK_LIMIT,
+                "has_more_tasks": has_more_tasks,
                 "unread_task_ids": set(),
                 "has_history_updates": False,
                 "title": "历史任务",
@@ -465,33 +377,47 @@ def running_task_list(request: Request):
         conn.close()
 
 
+@router.get("/tasks/running/status")
+def running_task_status(request: Request):
+    try:
+        user, conn = _current_user_and_conn(request)
+    except (ForbiddenError, TypeError, ValueError):
+        return JSONResponse({"error": "login required"}, status_code=401)
+    try:
+        return {
+            "tasks": [
+                running_task_payload(task)
+                for task in list_active_tasks_for_user(conn, user)
+            ],
+        }
+    finally:
+        conn.close()
+
+
 @router.get("/tasks/{task_id}/report.html")
 def report_html(request: Request, task_id: int):
     try:
-        user, task, path, error = _authorized_report_path(request, task_id)
+        _, task, path, images, error = _report_context(request, task_id, mark_read=True)
     except (ForbiddenError, TypeError, ValueError):
         return _error_response("Login required", status_code=401)
     if error:
         return error
-    conn = connect(request.app.state.settings.db_path)
-    try:
-        mark_task_report_read(conn, user.id, task.id)
-    finally:
-        conn.close()
-    return HTMLResponse(_current_report_html(request, task, path))
+    return HTMLResponse(
+        current_report_html(request.app.state.settings, task, images, path)
+    )
 
 
 @router.get("/tasks/{task_id}/report.pdf")
 def report_pdf(request: Request, task_id: int):
     try:
-        user, task, html_path, error = _authorized_report_path(request, task_id)
+        user, task, html_path, images, error = _report_context(request, task_id)
     except (ForbiddenError, TypeError, ValueError):
         return _error_response("Login required", status_code=401)
     if error:
         return error
 
     dirs = ensure_task_dirs(request.app.state.settings, task.id)
-    _current_report_html(request, task, html_path)
+    current_report_html(request.app.state.settings, task, images, html_path)
     pdf_is_stale = (
         dirs.pdf_report.exists()
         and html_path.exists()
@@ -499,7 +425,12 @@ def report_pdf(request: Request, task_id: int):
     )
     if pdf_is_stale or not is_current_report_pdf(dirs.pdf_report):
         try:
-            render_report_pdf(request.app.state.settings, task.id, html_path, dirs.pdf_report)
+            render_report_pdf(
+                request.app.state.settings,
+                task.id,
+                html_path,
+                dirs.pdf_report,
+            )
         except PdfRenderError as exc:
             return _error_response(f"PDF 生成失败：{exc}", status_code=503)
 
@@ -533,6 +464,8 @@ def task_detail(request: Request, task_id: int):
                 "user": user,
                 "csrf_token": ensure_csrf(request),
                 "task": task,
+                "back_link": task_back_link(task.status),
+                "failure_actions": task_failure_actions(task.status),
                 "audit_specs": audit_specs,
                 "images": list_task_images(conn, task.id),
                 "title": task.title,
@@ -581,20 +514,6 @@ def task_status(request: Request, task_id: int):
         if task is None or not user_can_access_task(user, task):
             return JSONResponse({"error": "forbidden"}, status_code=403)
         images = list_task_images(conn, task.id)
-        return {
-            "id": task.id,
-            "status": task.status,
-            "summary": task.summary,
-            "error_message": task.error_message,
-            "images": [
-                {
-                    "id": image.id,
-                    "filename": image.filename,
-                    "status": image.status,
-                    "error_message": image.error_message,
-                }
-                for image in images
-            ],
-        }
+        return task_status_payload(task, images)
     finally:
         conn.close()

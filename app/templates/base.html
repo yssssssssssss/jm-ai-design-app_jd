@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>AI 规范审查</title>
-  <link rel="stylesheet" href="{{ url_for('static', path='app.css') }}?v=20260528-6">
+  <link rel="stylesheet" href="{{ url_for('static', path='app.css') }}?v={{ static_asset_version }}">
 </head>
 <body>
   {% if user %}
@@ -46,7 +46,7 @@
       </nav>
     </header>
   {% endif %}
-  <main class="page {{ 'page-public' if not user else '' }} {{ 'page-' ~ nav_active if nav_active else '' }}">
+  <main class="page {{ 'page-public' if not user else '' }} {{ 'page-' ~ nav_active if nav_active else '' }}" data-page="{{ nav_active or 'public' }}">
     {% if title and not hide_page_title %}
       <h1 class="page-title">{{ title }}</h1>
     {% endif %}

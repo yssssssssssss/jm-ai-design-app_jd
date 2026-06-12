@@ -2,6 +2,7 @@ import re
 import json
 from io import BytesIO
 
+import app.routes.tasks as task_routes
 from app.db import connect
 from app.pdf_renderer import PDF_RENDERER_VERSION
 from app.repositories import (
@@ -99,6 +100,39 @@ def test_pdf_report_requires_task_permission(client, settings):
     assert allowed.content.startswith(b"%PDF-1.4")
 
 
+def test_pdf_report_reuses_current_cached_pdf(monkeypatch, client, settings):
+    conn = connect(settings.db_path)
+    alice = create_user(conn, "alice", hash_password("secret123"), "user")
+    task = create_task(conn, alice.id, "Cached PDF report", 1)
+    dirs = ensure_task_dirs(settings, task.id)
+    dirs.report.write_text("<html>cached</html>", encoding="utf-8")
+    dirs.pdf_report.write_bytes(b"%PDF-1.4\ncached\n")
+    dirs.pdf_report.with_name("report.pdf.version").write_text(
+        PDF_RENDERER_VERSION,
+        encoding="utf-8",
+    )
+    update_task_status(
+        conn,
+        task.id,
+        "succeeded",
+        report_path=relative_to_data(settings, dirs.report),
+    )
+    conn.close()
+    monkeypatch.setattr(
+        task_routes,
+        "render_report_pdf",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("current PDF should not be rendered again")
+        ),
+    )
+
+    _login(client, "alice", "secret123")
+    response = client.get(f"/tasks/{task.id}/report.pdf")
+
+    assert response.status_code == 200
+    assert response.content.startswith(b"%PDF-1.4")
+
+
 def test_html_report_injects_pdf_download_for_existing_reports(client, settings):
     conn = connect(settings.db_path)
     alice = create_user(conn, "alice", hash_password("secret123"), "user")
@@ -188,6 +222,45 @@ def test_html_report_rerenders_existing_structured_report(client, settings):
     assert "规范色彩令牌" in response.text
 
 
+def test_html_report_route_uses_single_database_connection(client, settings, monkeypatch):
+    conn = connect(settings.db_path)
+    alice = create_user(conn, "alice", hash_password("secret123"), "user")
+    task = create_task(conn, alice.id, "Connection report", 1)
+    add_task_image(
+        conn,
+        task.id,
+        filename="image-001.png",
+        original_path=f"uploads/{task.id}/originals/image-001.png",
+        sort_order=0,
+    )
+    dirs = ensure_task_dirs(settings, task.id)
+    dirs.report.write_text(
+        '<html><body><a class="back-link" href="/tasks">返回</a></body></html>',
+        encoding="utf-8",
+    )
+    update_task_status(
+        conn,
+        task.id,
+        "succeeded",
+        report_path=relative_to_data(settings, dirs.report),
+    )
+    conn.close()
+    calls = []
+    original_connect = task_routes.connect
+
+    def counted_connect(*args, **kwargs):
+        calls.append(args[0])
+        return original_connect(*args, **kwargs)
+
+    monkeypatch.setattr(task_routes, "connect", counted_connect)
+
+    _login(client, "alice", "secret123")
+    response = client.get(f"/tasks/{task.id}/report.html")
+
+    assert response.status_code == 200
+    assert len(calls) == 1
+
+
 def test_task_detail_shows_selected_audit_spec(client, settings):
     conn = connect(settings.db_path)
     alice = create_user(conn, "alice", hash_password("secret123"), "user")
@@ -221,6 +294,108 @@ def test_task_detail_shows_multiple_selected_audit_specs(client, settings):
     assert "审核规范" in response.text
     assert "JM AI 设计规范" in response.text
     assert "京东 B 端设计规范" in response.text
+
+
+def test_task_detail_exposes_progress_update_targets(client, settings):
+    conn = connect(settings.db_path)
+    alice = create_user(conn, "alice", hash_password("secret123"), "user")
+    task = create_task(conn, alice.id, "Progress detail", 1)
+    add_task_image(
+        conn,
+        task.id,
+        filename="image-001.png",
+        original_path=f"uploads/{task.id}/originals/image-001.png",
+        sort_order=0,
+    )
+    conn.close()
+
+    _login(client, "alice", "secret123")
+    response = client.get(f"/tasks/{task.id}")
+
+    assert response.status_code == 200
+    assert 'id="task-back-link"' in response.text
+    assert ">排队中</span>" in response.text
+    assert 'id="task-summary"' in response.text
+    assert 'id="task-error"' in response.text
+    assert 'id="task-report-links"' in response.text
+    assert 'data-image-id=' in response.text
+
+
+def test_failed_task_detail_shows_reason_and_recovery_actions(client, settings):
+    conn = connect(settings.db_path)
+    alice = create_user(conn, "alice", hash_password("secret123"), "user")
+    task = create_task(conn, alice.id, "Failed detail", 1)
+    update_task_status(
+        conn,
+        task.id,
+        "failed",
+        error_message="模型调用失败",
+    )
+    conn.close()
+
+    _login(client, "alice", "secret123")
+    response = client.get(f"/tasks/{task.id}")
+
+    assert response.status_code == 200
+    assert "模型调用失败" in response.text
+    assert 'id="task-failure-actions"' in response.text
+    assert "重新上传" in response.text
+    assert "返回新建任务" in response.text
+
+
+def test_task_status_returns_report_links_when_ready(client, settings):
+    conn = connect(settings.db_path)
+    alice = create_user(conn, "alice", hash_password("secret123"), "user")
+    task = create_task(conn, alice.id, "Ready report", 1)
+    dirs = ensure_task_dirs(settings, task.id)
+    dirs.report.write_text("<html>ready</html>", encoding="utf-8")
+    update_task_status(
+        conn,
+        task.id,
+        "succeeded",
+        summary="审核完成",
+        report_path=relative_to_data(settings, dirs.report),
+    )
+    conn.close()
+
+    _login(client, "alice", "secret123")
+    response = client.get(f"/tasks/{task.id}/status")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["summary"] == "审核完成"
+    assert payload["status"] == "succeeded"
+    assert payload["status_label"] == "已完成"
+    assert payload["back_link"] == {"href": "/tasks", "label": "返回历史任务"}
+    assert payload["report"] == {
+        "html": f"/tasks/{task.id}/report.html",
+        "pdf": f"/tasks/{task.id}/report.pdf",
+    }
+
+
+def test_task_status_returns_failure_actions_when_failed(client, settings):
+    conn = connect(settings.db_path)
+    alice = create_user(conn, "alice", hash_password("secret123"), "user")
+    task = create_task(conn, alice.id, "Failed status", 1)
+    update_task_status(
+        conn,
+        task.id,
+        "failed",
+        error_message="模型调用失败",
+    )
+    conn.close()
+
+    _login(client, "alice", "secret123")
+    response = client.get(f"/tasks/{task.id}/status")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "failed"
+    assert payload["error_message"] == "模型调用失败"
+    assert payload["failure_actions"] == [
+        {"href": "/", "label": "重新上传"},
+        {"href": "/", "label": "返回新建任务"},
+    ]
 
 
 def test_create_task_accepts_b_design_spec_selection(client, settings):

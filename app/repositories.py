@@ -12,6 +12,7 @@ from app.models import (
     TASK_FAILED,
     TASK_SUCCEEDED,
     Task,
+    TaskJob,
     TaskImage,
     User,
 )
@@ -67,6 +68,21 @@ def _image(row: sqlite3.Row) -> TaskImage:
         sort_order=row["sort_order"],
         status=row["status"],
         error_message=row["error_message"],
+    )
+
+
+def _job(row: sqlite3.Row) -> TaskJob:
+    return TaskJob(
+        id=row["id"],
+        task_id=row["task_id"],
+        status=row["status"],
+        attempts=row["attempts"],
+        locked_at=row["locked_at"],
+        locked_by=row["locked_by"],
+        error_message=row["error_message"],
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+        finished_at=row["finished_at"],
     )
 
 
@@ -131,6 +147,7 @@ def create_task(
     audit_spec_id: str | list[str] = DEFAULT_SPEC_ID,
     screen_width_px: int | None = None,
     screen_height_px: int | None = None,
+    commit: bool = True,
 ) -> Task:
     now = beijing_now_text()
     stored_audit_spec_id = serialize_audit_spec_ids(validate_audit_spec_ids(audit_spec_id))
@@ -161,7 +178,8 @@ def create_task(
             now,
         ),
     )
-    conn.commit()
+    if commit:
+        conn.commit()
     task = get_task_by_id(conn, int(cur.lastrowid))
     if task is None:
         raise RuntimeError("created task not found")
@@ -174,6 +192,7 @@ def add_task_image(
     filename: str,
     original_path: str,
     sort_order: int,
+    commit: bool = True,
 ) -> TaskImage:
     cur = conn.execute(
         """
@@ -182,11 +201,208 @@ def add_task_image(
         """,
         (task_id, filename, original_path, sort_order, TASK_QUEUED),
     )
-    conn.commit()
+    if commit:
+        conn.commit()
     image = get_task_image_by_id(conn, int(cur.lastrowid))
     if image is None:
         raise RuntimeError("created task image not found")
     return image
+
+
+def create_task_job(
+    conn: sqlite3.Connection,
+    task_id: int,
+    commit: bool = True,
+) -> TaskJob:
+    now = beijing_now_text()
+    cur = conn.execute(
+        """
+        insert into task_jobs (task_id, status, created_at, updated_at)
+        values (?, ?, ?, ?)
+        on conflict(task_id) do update set
+            status = case
+              when task_jobs.status in ('succeeded', 'failed') then excluded.status
+              else task_jobs.status
+            end,
+            locked_at = case
+              when task_jobs.status in ('succeeded', 'failed') then null
+              else task_jobs.locked_at
+            end,
+            locked_by = case
+              when task_jobs.status in ('succeeded', 'failed') then null
+              else task_jobs.locked_by
+            end,
+            error_message = case
+              when task_jobs.status in ('succeeded', 'failed') then null
+              else task_jobs.error_message
+            end,
+            finished_at = case
+              when task_jobs.status in ('succeeded', 'failed') then null
+              else task_jobs.finished_at
+            end,
+            updated_at = excluded.updated_at
+        """,
+        (task_id, TASK_QUEUED, now, now),
+    )
+    if commit:
+        conn.commit()
+    job = get_task_job_by_task_id(conn, task_id)
+    if job is None:
+        raise RuntimeError("created task job not found")
+    return job
+
+
+def get_task_job_by_task_id(conn: sqlite3.Connection, task_id: int) -> TaskJob | None:
+    row = conn.execute("select * from task_jobs where task_id = ?", (task_id,)).fetchone()
+    return _job(row) if row else None
+
+
+def get_task_job_by_id(conn: sqlite3.Connection, job_id: int) -> TaskJob | None:
+    row = conn.execute("select * from task_jobs where id = ?", (job_id,)).fetchone()
+    return _job(row) if row else None
+
+
+def list_task_jobs(conn: sqlite3.Connection) -> list[TaskJob]:
+    rows = conn.execute("select * from task_jobs order by id asc").fetchall()
+    return [_job(row) for row in rows]
+
+
+def count_task_jobs_by_status(conn: sqlite3.Connection) -> dict[str, int]:
+    counts = {
+        TASK_QUEUED: 0,
+        TASK_RUNNING: 0,
+        TASK_SUCCEEDED: 0,
+        TASK_FAILED: 0,
+    }
+    rows = conn.execute(
+        "select status, count(*) as count from task_jobs group by status"
+    ).fetchall()
+    for row in rows:
+        counts[row["status"]] = int(row["count"])
+    return counts
+
+
+def claim_next_task_job(conn: sqlite3.Connection, worker_id: str) -> TaskJob | None:
+    now = beijing_now_text()
+    conn.execute("begin immediate")
+    try:
+        row = conn.execute(
+            """
+            select *
+            from task_jobs
+            where status = ?
+            order by created_at asc, id asc
+            limit 1
+            """,
+            (TASK_QUEUED,),
+        ).fetchone()
+        if row is None:
+            conn.commit()
+            return None
+        conn.execute(
+            """
+            update task_jobs
+            set status = ?,
+                attempts = attempts + 1,
+                locked_at = ?,
+                locked_by = ?,
+                error_message = null,
+                updated_at = ?,
+                finished_at = null
+            where id = ?
+            """,
+            (TASK_RUNNING, now, worker_id, now, row["id"]),
+        )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    claimed = get_task_job_by_id(conn, int(row["id"]))
+    if claimed is None:
+        raise RuntimeError("claimed task job not found")
+    return claimed
+
+
+def recover_interrupted_task_jobs(conn: sqlite3.Connection) -> int:
+    now = beijing_now_text()
+    conn.execute("begin immediate")
+    try:
+        conn.execute(
+            """
+            insert into task_jobs (task_id, status, created_at, updated_at)
+            select tasks.id, ?, ?, ?
+            from tasks
+            left join task_jobs on task_jobs.task_id = tasks.id
+            where tasks.status in (?, ?)
+              and task_jobs.id is null
+            """,
+            (TASK_QUEUED, now, now, TASK_QUEUED, TASK_RUNNING),
+        )
+        updated = conn.execute(
+            """
+            update task_jobs
+            set status = ?,
+                locked_at = null,
+                locked_by = null,
+                error_message = null,
+                updated_at = ?,
+                finished_at = null
+            where status in (?, ?)
+            """,
+            (TASK_QUEUED, now, TASK_QUEUED, TASK_RUNNING),
+        )
+        conn.execute(
+            """
+            update tasks
+            set status = ?,
+                error_message = null,
+                updated_at = ?
+            where status = ?
+            """,
+            (TASK_QUEUED, now, TASK_RUNNING),
+        )
+        conn.commit()
+        return updated.rowcount
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def mark_task_job_succeeded(conn: sqlite3.Connection, job_id: int) -> None:
+    _finish_task_job(conn, job_id, TASK_SUCCEEDED, None)
+
+
+def mark_task_job_failed(
+    conn: sqlite3.Connection,
+    job_id: int,
+    error_message: str | None = None,
+) -> None:
+    _finish_task_job(conn, job_id, TASK_FAILED, error_message)
+
+
+def _finish_task_job(
+    conn: sqlite3.Connection,
+    job_id: int,
+    status: str,
+    error_message: str | None,
+) -> None:
+    now = beijing_now_text()
+    cur = conn.execute(
+        """
+        update task_jobs
+        set status = ?,
+            locked_at = null,
+            locked_by = null,
+            error_message = ?,
+            updated_at = ?,
+            finished_at = ?
+        where id = ?
+        """,
+        (status, error_message, now, now, job_id),
+    )
+    if cur.rowcount == 0:
+        raise ValueError("task job not found")
+    conn.commit()
 
 
 def get_task_by_id(conn: sqlite3.Connection, task_id: int) -> Task | None:
@@ -215,14 +431,21 @@ def list_task_images(conn: sqlite3.Connection, task_id: int) -> list[TaskImage]:
     return [_image(row) for row in rows]
 
 
-def list_tasks_for_user(conn: sqlite3.Connection, user: User) -> list[Task]:
-    return list_tasks_by_status_for_user(conn, user)
+def list_tasks_for_user(
+    conn: sqlite3.Connection,
+    user: User,
+    *,
+    limit: int | None = None,
+) -> list[Task]:
+    return list_tasks_by_status_for_user(conn, user, limit=limit)
 
 
 def list_tasks_by_status_for_user(
     conn: sqlite3.Connection,
     user: User,
     statuses: set[str] | None = None,
+    *,
+    limit: int | None = None,
 ) -> list[Task]:
     status_filter = ""
     params: list[object] = []
@@ -230,6 +453,10 @@ def list_tasks_by_status_for_user(
         placeholders = ",".join("?" for _ in statuses)
         status_filter = f" and tasks.status in ({placeholders})"
         params.extend(sorted(statuses))
+    limit_clause = ""
+    if limit is not None:
+        limit_clause = "limit ?"
+        params.append(limit)
 
     if user.is_admin:
         rows = conn.execute(
@@ -240,6 +467,7 @@ def list_tasks_by_status_for_user(
             where 1 = 1
             {status_filter}
             order by tasks.created_at desc, tasks.id desc
+            {limit_clause}
             """,
             params,
         ).fetchall()
@@ -252,6 +480,7 @@ def list_tasks_by_status_for_user(
             where tasks.owner_id = ?
             {status_filter}
             order by tasks.created_at desc, tasks.id desc
+            {limit_clause}
             """,
             [user.id, *params],
         ).fetchall()

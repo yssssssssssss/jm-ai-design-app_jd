@@ -26,8 +26,24 @@
 - `审核规范` uses checkbox multi-select, not a dropdown.
 - No audit spec should be selected by default.
 - Submitting without any selected spec must be rejected.
+- Upload validation errors re-render the upload page with field-level errors and preserve title, selected specs, and hidden screen-size values.
+- Upload file previews show file name, size, and validation status.
+- Task detail pages expose `#task-status`, `#task-summary`, `#task-error`, `#task-failure-actions`, `#task-report-links`, and per-image `data-image-id` update targets.
+- `/tasks/{task_id}/status` returns raw status, Chinese status label, back link, summary/error, optional report links, failure actions, and image statuses.
+- `/tasks/running/status` returns only visible active tasks (`queued` and `running`); completed rows should retire locally before disappearing.
+- History pages intentionally render only the most recent 100 tasks.
 
 ## Local Service
 
 - The app is a single-port FastAPI service: frontend pages, static assets, and backend API routes all run on `http://127.0.0.1:8011/`.
 - Local tmux session name: `jm-ai-design-8011`.
+- `npm run verify` runs the local handoff gate: Python architecture check, JS syntax check, app compile, full pytest, and `git diff --check`.
+
+## Storage and Reports
+
+- SQLite schema version is `5`.
+- New databases are created by `init_db`; existing unversioned core schemas are rejected rather than guessed.
+- Task jobs are stored in `task_jobs` with `queued`, `running`, `succeeded`, and `failed` states.
+- Startup recovery requeues interrupted `queued`/`running` jobs and normalizes interrupted running tasks.
+- HTML reports may be served from cache when report artifacts are older than `report.html`.
+- PDF reports may be served from cache when `report.pdf.version` matches the current renderer and the PDF is newer than the HTML report.

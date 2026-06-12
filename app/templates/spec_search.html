@@ -31,5 +31,5 @@
   </form>
   <button class="back-to-top" id="spec-back-to-top" type="button" aria-label="返回页面顶部">↑</button>
 </section>
-<script src="/static/app.js"></script>
+<script src="{{ url_for('static', path='app.js') }}?v={{ static_asset_version }}" defer></script>
 {% endblock %}

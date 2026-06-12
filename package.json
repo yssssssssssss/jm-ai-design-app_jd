@@ -8,6 +8,7 @@
     "status": "scripts/local_service.sh status",
     "logs": "scripts/local_service.sh logs",
     "health": "scripts/local_service.sh health",
+    "verify": "scripts/local_service.sh verify",
     "dev": "scripts/local_service.sh start"
   }
 }

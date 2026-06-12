@@ -6,10 +6,13 @@
   data-task-list="{{ task_mode }}"
   data-task-count="{{ tasks|length }}"
 >
+  {% if task_mode == "history" and has_more_tasks %}
+    <p class="list-note">仅显示最近 {{ history_task_limit }} 条历史任务。</p>
+  {% endif %}
   {% if tasks %}
     <div class="task-list">
       {% for task in tasks %}
-        <article class="task-row">
+        <article class="task-row" data-task-row="{{ task.id }}">
           <div class="task-main">
             {% if task_mode == "history" and task.report_path %}
               <a class="task-title" href="/tasks/{{ task.id }}/report.html">
@@ -28,7 +31,10 @@
             </div>
           </div>
           <div class="task-side">
-            <span class="status status-{{ task.status }}">{{ task.status }}</span>
+            <span
+              class="status status-{{ task.status }}"
+              data-task-status="{{ task.id }}"
+            >{{ task.status | task_status_label }}</span>
             {% if task_mode == "running" %}
               <a class="text-action" href="/tasks/{{ task.id }}">查看进度</a>
             {% endif %}
@@ -46,4 +52,5 @@
     </p>
   {% endif %}
 </section>
+<script src="{{ url_for('static', path='app.js') }}?v={{ static_asset_version }}" defer></script>
 {% endblock %}

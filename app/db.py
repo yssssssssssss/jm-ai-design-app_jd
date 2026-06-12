@@ -6,16 +6,18 @@ from pathlib import Path
 from app.time_utils import beijing_now_text
 
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 CORE_TABLES = {"users", "tasks", "task_images"}
 
 
 def connect(path: Path) -> sqlite3.Connection:
     path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(path)
+    conn = sqlite3.connect(path, timeout=5.0)
     conn.row_factory = sqlite3.Row
     conn.create_function("beijing_now", 0, beijing_now_text)
     conn.execute("pragma foreign_keys = on")
+    conn.execute("pragma busy_timeout = 5000")
+    conn.execute("pragma journal_mode = wal")
     return conn
 
 
@@ -48,7 +50,7 @@ def init_db(conn: sqlite3.Connection) -> None:
     version = _user_version(conn)
     if version == 0 and _has_core_tables(conn):
         raise RuntimeError("existing unversioned schema requires migration/recreate")
-    if version not in (0, 1, 2, 3, SCHEMA_VERSION):
+    if version not in (0, 1, 2, 3, 4, SCHEMA_VERSION):
         raise RuntimeError(f"unsupported database schema version: {version}")
 
     conn.executescript(
@@ -103,9 +105,26 @@ def init_db(conn: sqlite3.Connection) -> None:
           primary key (user_id, task_id)
         );
 
+        create table if not exists task_jobs (
+          id integer primary key autoincrement,
+          task_id integer not null unique references tasks(id) on delete cascade,
+          status text not null check (status in ('queued', 'running', 'succeeded', 'failed')),
+          attempts integer not null default 0 check (attempts >= 0),
+          locked_at text,
+          locked_by text,
+          error_message text,
+          created_at text not null default (beijing_now()),
+          updated_at text not null default (beijing_now()),
+          finished_at text
+        );
+
         create index if not exists idx_tasks_owner_created on tasks(owner_id, created_at desc);
+        create index if not exists idx_tasks_owner_status_created
+          on tasks(owner_id, status, created_at desc);
         create index if not exists idx_task_report_reads_user
           on task_report_reads(user_id, read_at desc);
+        create index if not exists idx_task_jobs_status_created
+          on task_jobs(status, created_at, id);
         """
     )
     if version in (1, 2, 3):
